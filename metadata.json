@@ -1,0 +1,6 @@
+{
+  "name": "Kayagreen",
+  "description": "Plataforma para gerenciamento de vendas de microverdes com catálogo de produtos, fluxo de pedidos do cliente e painel administrativo com relatórios e dashboards em tempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

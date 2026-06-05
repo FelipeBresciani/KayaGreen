@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Auth & Role Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Checks explicit server-verified mapping in /admins path or bypass by founder email to avoid user claim manipulation
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'felipe.bresciani1@gmail.com'
+      );
+    }
+
+    // Hardening document ID constraints to prevent character injection poisoning
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Data Shape & Attribute validation blueprints ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'phone', 'address', 'role', 'createdAt'])
+        && data.keys().size() == 7
+        && data.uid is string && data.uid.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 256
+        && data.phone is string && data.phone.size() <= 40
+        && data.address is string && data.address.size() <= 1000
+        && data.role in ['cliente', 'admin']
+        && data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'name', 'description', 'availableWeight', 'unit', 'pricePerWeight', 'image', 'status'])
+        && data.keys().size() == 8
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.description is string && data.description.size() <= 4000
+        && data.availableWeight is number && data.availableWeight >= 0
+        && data.unit in ['g', 'kg']
+        && data.pricePerWeight is number && data.pricePerWeight >= 0
+        && data.image is string && data.image.size() <= 2048
+        && data.status in ['ativo', 'inativo'];
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'customerId', 'customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'total', 'status', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.customerId is string && data.customerId.size() <= 128
+        && data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 200
+        && data.customerEmail is string && data.customerEmail.size() <= 256
+        && data.customerPhone is string && data.customerPhone.size() <= 40
+        && data.customerAddress is string && data.customerAddress.size() <= 1000
+        && data.total is number && data.total >= 0
+        && data.status in ['aguardando_aprovacao', 'planejado', 'em_producao', 'em_entrega', 'concluido', 'cancelado']
+        && data.createdAt is string && data.createdAt.size() <= 50
+        && data.updatedAt is string && data.updatedAt.size() <= 50;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['id', 'recipient', 'title', 'message', 'isRead', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.recipient in ['admin', 'cliente']
+        && data.title is string && data.title.size() <= 200
+        && data.message is string && data.message.size() <= 2000
+        && data.isRead is bool
+        && data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
+    // --- Path Matching Security Declarations ---
+
+    // 1. Users / Accounts Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      // Block users from elevating their roles - users can register themselves only as a 'cliente' explicitly!
+      allow create: if (isOwner(userId) && isValidUser(incoming()) && incoming().role == 'cliente') || isAdmin();
+      // Users cannot change their assigned roles after creation to avoid privilege escalation
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && incoming().role == existing().role) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 2. Botanical Products Collection
+    match /products/{productId} {
+      allow read, list: if true; // Catalogue is public to browse
+      allow create, update, delete: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+    }
+
+    // 3. Customer Consignments / Orders
+    match /orders/{orderId} {
+      allow get: if (isSignedIn() && (resource.data.customerId == request.auth.uid)) || isAdmin();
+      allow list: if (isSignedIn() && (resource.data.customerId == request.auth.uid)) || isAdmin();
+      
+      // Placing orders: signed-in user must be the customer owner of the fields
+      allow create: if isSignedIn() 
+        && incoming().customerId == request.auth.uid 
+        && isValidOrder(incoming()) 
+        && isValidId(orderId);
+      
+      allow update: if (
+        (isAdmin() && isValidOrder(incoming())) ||
+        // Customers can ONLY transition pending orders to 'cancelado' status, with no other field changes
+        (isOwner(existing().customerId) && isValidOrder(incoming()) && (
+          incoming().status == 'cancelado' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        ))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 4. Notifications
+    match /notifications/{notifId} {
+      allow get, list: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if isSignedIn() && isValidNotification(incoming()) && isValidId(notifId);
+      // Allows user or administrator to dismiss a notification
+      allow update: if (isSignedIn() && (resource.data.customerId == request.auth.uid || isAdmin()) && incoming().diff(existing()).affectedKeys().hasOnly(['isRead']));
+      allow delete: if isAdmin();
+    }
+
+    // 5. Administrators Explicit Mapping Collection (cannot be self-managed)
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(); 
+    }
+  }
+}
