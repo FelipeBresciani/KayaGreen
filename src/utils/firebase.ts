@@ -14,7 +14,9 @@ const app = (isFirebaseConfigured() && !getApps().length)
   : (getApps().length ? getApp() : null);
 
 export const db = (app && isFirebaseConfigured())
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  ? (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(app))
   : null;
 
 export const auth = (app && isFirebaseConfigured())

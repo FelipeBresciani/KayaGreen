@@ -95,7 +95,14 @@ export default function AdminCustomers({ customers, orders, onPromoteAdmin, admi
               return (
                 <div
                   key={c.id}
-                  onClick={() => setSelectedCustomerId(c.id)}
+                  onClick={() => {
+                    setSelectedCustomerId(c.id);
+                    if (window.innerWidth < 1024) {
+                      setTimeout(() => {
+                        document.getElementById('customer-profile-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }
+                  }}
                   className={`p-3.5 rounded-xl border text-xs text-left cursor-pointer transition-all flex items-center justify-between gap-4 ${
                     selectedCustomerId === c.id || (!selectedCustomerId && activeCustomer?.id === c.id)
                       ? 'border-emerald-500 bg-emerald-50/20 ring-1 ring-emerald-250/20'

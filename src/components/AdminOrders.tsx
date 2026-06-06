@@ -149,6 +149,11 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                 onClick={() => {
                   setSelectedOrder(o);
                   setShowCancelPrompt(false);
+                  if (window.innerWidth < 1024) {
+                    setTimeout(() => {
+                      document.getElementById('order-focus-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 50);
+                  }
                 }}
                 className={`p-3.5 rounded-xl border text-xs text-left cursor-pointer transition flex items-center justify-between gap-4 ${
                   selectedOrder?.id === o.id

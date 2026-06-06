@@ -145,8 +145,15 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
           </p>
         </div>
 
-        <div
-          className="relative bg-emerald-50 text-emerald-800 border border-emerald-100 font-bold text-xs px-4 py-3 rounded-xl flex items-center justify-center gap-2 shrink-0 select-none"
+        <button
+          onClick={() => {
+            const el = document.getElementById('shopping-cart-drawer');
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }}
+          className="relative bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-100 font-bold text-xs px-4 py-3 rounded-xl flex items-center justify-center gap-2 shrink-0 select-none transition active:scale-95 cursor-pointer lg:cursor-default lg:hover:bg-emerald-50"
+          title="Ver meu carrinho de compras"
         >
           <ShoppingCart className="w-4.5 h-4.5 text-emerald-600" />
           <span>Carrinho de Compras</span>
@@ -155,7 +162,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
               {cart.reduce((s, i) => s + i.quantity, 0)}
             </span>
           )}
-        </div>
+        </button>
       </div>
 
       {/* Provisional Profile Completion Warning Banner */}
@@ -195,7 +202,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Left column: Products catalog list - Stable layout structure */}
-        <div className="lg:col-span-8 grid grid-cols-2 gap-5 transition-all duration-350">
+        <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-5 transition-all duration-350">
           {activeProducts.map(p => {
             const activeWeight = selectedWeights[p.id] || 20;
             const price = getProductPriceForWeight(p, activeWeight);
@@ -287,7 +294,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
         {/* Right column: Interactive Checkout Cart panel (4/12 width) */}
         {showCart && (
-          <div id="shopping-cart-drawer" className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden animate-slide-left sticky top-24">
+          <div id="shopping-cart-drawer" className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden animate-slide-left lg:sticky lg:top-24">
             <div className="bg-emerald-950 text-white p-4 flex items-center justify-between">
               <h3 className="font-bold text-xs flex items-center gap-1.5 uppercase tracking-wider">
                 🛒 Meu Carrinho

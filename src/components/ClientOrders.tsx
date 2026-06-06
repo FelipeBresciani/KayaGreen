@@ -72,7 +72,16 @@ export default function ClientOrders({ orders, currentCustomerId }: ClientOrders
             {clientOrders.map(o => (
               <div
                 key={o.id}
-                onClick={() => setSelectedOrder(o)}
+                onClick={() => {
+                  setSelectedOrder(o);
+                  // Focus detail panel on mobile/tablet screens smoothly
+                  const el = document.getElementById('encomenda-focus-tracker');
+                  if (el && window.innerWidth < 1024) {
+                    setTimeout(() => {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 50);
+                  }
+                }}
                 className={`p-3.5 rounded-xl border text-xs text-left cursor-pointer transition flex items-center justify-between gap-4 ${
                   focusedOrder?.id === o.id
                     ? 'border-emerald-500 bg-emerald-50/20 ring-1 ring-emerald-250/20'

@@ -128,7 +128,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Produtos Cadastrados ({products.length})</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50 text-slate-550 font-bold uppercase text-[10px] tracking-wider">
@@ -213,6 +213,75 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile card-based layout - Premium responsiveness */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 md:hidden">
+          {products.map(p => (
+            <div
+              key={p.id}
+              className={`p-4 rounded-xl border flex flex-col justify-between gap-4 transition bg-white ${
+                p.status === 'inativo' ? 'border-slate-100 bg-slate-50/45 opacity-75' : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-805 text-xs truncate">
+                    <span>🌱</span>
+                    <span className="truncate">{p.name}</span>
+                  </div>
+                  <button
+                    onClick={() => handleToggleStatus(p)}
+                    className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition shrink-0 ${
+                      p.status === 'ativo'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                        : 'bg-slate-100 text-slate-550 border-slate-200'
+                    }`}
+                  >
+                    {p.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed" title={p.description}>
+                  {p.description}
+                </p>
+              </div>
+
+              <div className="border-t border-slate-100 pt-3 flex items-center justify-between font-mono text-[10px] gap-2">
+                <div>
+                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Preço base</span>
+                  <span className="font-bold text-emerald-700 text-xs">{formatCurrency(p.pricePerWeight)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Disponível ({p.unit})</span>
+                  <span className={`font-bold text-xs ${p.availableWeight <= 200 ? 'text-amber-600' : 'text-slate-700'}`}>
+                    {p.availableWeight} {p.unit}
+                  </span>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-3 flex justify-end gap-2">
+                <button
+                  onClick={() => openEditModal(p)}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-650 hover:text-emerald-750 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center gap-1 transition"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Editar
+                </button>
+                <button
+                  onClick={() => handleDelete(p.id)}
+                  className="px-3 py-1.5 text-xs font-semibold text-rose-650 hover:text-white hover:bg-rose-600 bg-rose-50/50 border border-slate-200 rounded-lg flex items-center gap-1 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Excluir
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {products.length === 0 && (
+            <div className="p-8 text-center text-slate-400 font-medium col-span-1 sm:col-span-2">
+              <Package className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+              <span>Nenhum produto cadastrado.</span>
+            </div>
+          )}
         </div>
       </div>
 

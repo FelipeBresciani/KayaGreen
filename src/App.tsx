@@ -902,23 +902,34 @@ export default function App() {
           <div className="space-y-6">
             
             {/* Kayagreen Brand Logo & Name Header */}
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100/80">
-              <div className="bg-slate-50 border border-slate-100/60 p-1.5 rounded-xl w-11 h-11 flex items-center justify-center overflow-hidden shrink-0 shadow-xs">
-                <img
-                  src="https://ugc.production.linktr.ee/d7ee3797-a896-427c-8af9-dda870971839_MARCA-KAYACV-03.png"
-                  alt="Kayagreen Logo"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-contain"
-                />
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100/80">
+              <div className="flex items-center gap-3">
+                <div className="bg-slate-50 border border-slate-100/60 p-1.5 rounded-xl w-11 h-11 flex items-center justify-center overflow-hidden shrink-0 shadow-xs">
+                  <img
+                    src="https://ugc.production.linktr.ee/d7ee3797-a896-427c-8af9-dda870971839_MARCA-KAYACV-03.png"
+                    alt="Kayagreen Logo"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <span className="text-sm font-black text-slate-900 tracking-tight block leading-snug">
+                    Kayagreen
+                  </span>
+                  <span className="text-[8px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-sm uppercase tracking-wider select-none font-mono">
+                    Microverdes
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="text-sm font-black text-slate-900 tracking-tight block leading-snug">
-                  Kayagreen
-                </span>
-                <span className="text-[8px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-sm uppercase tracking-wider select-none font-mono">
-                  Microverdes
-                </span>
-              </div>
+
+              {/* Close Drawer Button on Mobile */}
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition cursor-pointer"
+                title="Fechar Menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Header / active profile tag */}

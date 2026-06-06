@@ -253,10 +253,10 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                 <p className="text-xs text-slate-500 mt-0.5">Clique nas abas para alterar a granularidade visual</p>
               </div>
               
-              <div className="flex bg-slate-100 p-1 rounded-lg self-start">
+              <div className="flex flex-wrap sm:flex-nowrap bg-slate-100 p-1 rounded-lg self-start gap-1">
                 <button
                   onClick={() => setActiveChartTab('monthly')}
-                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition ${
+                  className={`text-[10px] sm:text-[11px] font-semibold px-2 sm:px-2.5 py-1 rounded-md transition ${
                     activeChartTab === 'monthly' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -264,7 +264,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                 </button>
                 <button
                   onClick={() => setActiveChartTab('weekly')}
-                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition ${
+                  className={`text-[10px] sm:text-[11px] font-semibold px-2 sm:px-2.5 py-1 rounded-md transition ${
                     activeChartTab === 'weekly' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -272,7 +272,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                 </button>
                 <button
                   onClick={() => setActiveChartTab('daily')}
-                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition ${
+                  className={`text-[10px] sm:text-[11px] font-semibold px-2 sm:px-2.5 py-1 rounded-md transition ${
                     activeChartTab === 'daily' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -280,7 +280,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                 </button>
                 <button
                   onClick={() => setActiveChartTab('products')}
-                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition ${
+                  className={`text-[10px] sm:text-[11px] font-semibold px-2 sm:px-2.5 py-1 rounded-md transition ${
                     activeChartTab === 'products' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -310,7 +310,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                         {formatCurrency(rev)} ({monthOrderCounts[idx]} ped)
                       </div>
                       <div
-                        className="w-12 bg-gradient-to-t from-emerald-600 to-emerald-400 hover:to-emerald-300 rounded-t-lg transition-all duration-500 relative animate-pulse"
+                        className="w-6 sm:w-12 bg-gradient-to-t from-emerald-600 to-emerald-400 hover:to-emerald-300 rounded-t-lg transition-all duration-500 relative animate-pulse"
                         style={{ height: `${Math.max(heightPercent, 4)}%` }}
                       >
                         {/* Interactive overlay */}
@@ -335,7 +335,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                         {formatCurrency(rev)}
                       </div>
                       <div
-                        className="w-8 bg-gradient-to-t from-indigo-600 to-indigo-400 hover:to-indigo-300 rounded-t-md transition-all duration-500 relative animate-pulse"
+                        className="w-4 sm:w-8 bg-gradient-to-t from-indigo-600 to-indigo-400 hover:to-indigo-300 rounded-t-md transition-all duration-500 relative animate-pulse"
                         style={{ height: `${Math.max(heightPercent, 4)}%` }}
                       >
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-md" />
@@ -359,7 +359,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                         {formatCurrency(rev)} ({dayOrders[idx]} ped)
                       </div>
                       <div
-                        className="w-10 bg-gradient-to-t from-emerald-500 to-teal-400 hover:to-teal-300 rounded-t-md transition-all duration-500 relative animate-pulse"
+                        className="w-5 min-[410px]:w-8 sm:w-10 bg-gradient-to-t from-emerald-500 to-teal-400 hover:to-teal-300 rounded-t-md transition-all duration-500 relative animate-pulse"
                         style={{ height: `${Math.max(heightPercent, 4)}%` }}
                       >
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-md" />
@@ -501,9 +501,9 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-[11px] sm:text-xs border-collapse min-w-[500px]">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 font-mono font-bold uppercase text-[10px]">
+                <tr className="border-b border-slate-100 text-slate-400 font-mono font-bold uppercase text-[9px] sm:text-[10px]">
                   <th className="py-2.5">Código</th>
                   <th className="py-2.5">Cliente</th>
                   <th className="py-2.5">Data</th>
