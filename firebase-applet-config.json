@@ -1,10 +1,10 @@
 {
-  "projectId": "proverbial-nucleus-29z5m",
+  "projectId": "kayagreenbr-scs",
   "appId": "1:99888231869:web:5dbcd56c44ef8e59890ed4",
-  "apiKey": "AIzaSyBSzlDeitUlO6oGdFbuOqfoxFqRqNEBTTA",
-  "authDomain": "proverbial-nucleus-29z5m.firebaseapp.com",
+  "apiKey": "AIzaSyBSzlDeitUl06oGdFbuOqfoxFqRqNEBTTA",
+  "authDomain": "kayagreenbr-scs.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-e1363a34-d761-41cd-9fbf-92962c27f098",
-  "storageBucket": "proverbial-nucleus-29z5m.firebasestorage.app",
+  "storageBucket": "kayagreenbr-scs.firebasestorage.app",
   "messagingSenderId": "99888231869",
   "measurementId": ""
 }
