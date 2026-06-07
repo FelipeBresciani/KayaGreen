@@ -28,6 +28,7 @@ import {
   updateDoc, 
   deleteDoc, 
   getDoc,
+  getDocs,
   query,
   where
 } from 'firebase/firestore';
@@ -64,33 +65,47 @@ import {
   Sparkles
 } from 'lucide-react';
 
-// Clean up seeded test data from Firestore if present
-const cleanUpTestData = async (dbInstance: any) => {
+// Seed default database models if products catalog collection is empty
+const seedDatabaseIfEmpty = async (dbInstance: any) => {
   try {
-    const mockProducts = ['prod_1', 'prod_2', 'prod_3', 'prod_4', 'prod_5', 'prod_6', 'prod_7'];
-    const mockCustomers = ['cust_1', 'cust_2', 'cust_3', 'cust_4'];
-    const mockOrders = [
-      'PED-1001', 'PED-1002', 'PED-1003', 'PED-1004', 'PED-1005',
-      'PED-1006', 'PED-1007', 'PED-1008', 'PED-1009', 'PED-1010',
-      'PED-1011', 'PED-1012', 'PED-1013', 'PED-1014'
-    ];
-    const mockNotifs = ['not_1', 'not_2', 'not_3', 'not_4'];
-
-    for (const pId of mockProducts) {
-      await deleteDoc(doc(dbInstance, 'products', pId)).catch(() => {});
+    const productsRef = collection(dbInstance, 'products');
+    const productsSnap = await getDocs(productsRef);
+    if (productsSnap.empty) {
+      console.log("Banco de dados do Firestore vazio. Iniciando semeadura de dados...");
+      
+      // 1. Seed Products
+      for (const p of INITIAL_PRODUCTS) {
+        await setDoc(doc(dbInstance, 'products', p.id), p);
+      }
+      
+      // 2. Seed Customers/Users
+      for (const c of INITIAL_CUSTOMERS) {
+        await setDoc(doc(dbInstance, 'users', c.id), {
+          uid: c.id,
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          address: c.address,
+          role: 'cliente',
+          createdAt: c.createdAt
+        });
+      }
+      
+      // 3. Seed Orders
+      for (const o of INITIAL_ORDERS) {
+        await setDoc(doc(dbInstance, 'orders', o.id), o);
+      }
+      
+      // 4. Seed Notifications
+      for (const n of INITIAL_NOTIFICATIONS) {
+        await setDoc(doc(dbInstance, 'notifications', n.id), n);
+      }
+      console.log("Banco de dados do Firestore semeado com sucesso!");
+    } else {
+      console.log("O Firestore já possui dados de produtos. Semeadura ignorada.");
     }
-    for (const cId of mockCustomers) {
-      await deleteDoc(doc(dbInstance, 'users', cId)).catch(() => {});
-    }
-    for (const oId of mockOrders) {
-      await deleteDoc(doc(dbInstance, 'orders', oId)).catch(() => {});
-    }
-    for (const nId of mockNotifs) {
-      await deleteDoc(doc(dbInstance, 'notifications', nId)).catch(() => {});
-    }
-    console.log("Mock test data cleaned from Firestore.");
   } catch (error) {
-    console.error("Error cleaning up test data:", error);
+    console.error("Erro ao verificar ou semear base de dados:", error);
   }
 };
 
@@ -320,10 +335,10 @@ export default function App() {
                 createdAt: new Date().toISOString()
               }, { merge: true });
 
-              // Run the one-time cleanup of mock data if we find it
-              await cleanUpTestData(db);
+              // Run the one-time seeding of mock data if the database is empty
+              await seedDatabaseIfEmpty(db);
             } catch (e) {
-              console.error("Erro bootstrapping admin or cleaning up:", e);
+              console.error("Erro bootstrapping admin or seeding:", e);
             }
           } else {
             const isAdminCheck = await getDoc(doc(db, 'admins', user.uid));
