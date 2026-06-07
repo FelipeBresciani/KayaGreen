@@ -1,10 +1,10 @@
 {
   "projectId": "kayagreenbr-scs",
-  "appId": "1:99888231869:web:5dbcd56c44ef8e59890ed4",
-  "apiKey": "AIzaSyBSzlDeitUl06oGdFbuOqfoxFqRqNEBTTA",
+  "appId": "1:679513269755:web:d3c4a020af037edd16975e",
+  "apiKey": "AIzaSyDnl2d9qSNcOmsbsZ29vy7Y5lAcUj_P6Os",
   "authDomain": "kayagreenbr-scs.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-e1363a34-d761-41cd-9fbf-92962c27f098",
+  "firestoreDatabaseId": "(default)",
   "storageBucket": "kayagreenbr-scs.firebasestorage.app",
-  "messagingSenderId": "99888231869",
-  "measurementId": ""
+  "messagingSenderId": "679513269755",
+  "measurementId": "G-B5E03L5F5H"
 }
