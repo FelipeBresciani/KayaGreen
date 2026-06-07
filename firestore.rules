@@ -103,7 +103,8 @@ service cloud.firestore {
     // 2. Botanical Products Collection
     match /products/{productId} {
       allow read, list: if true; // Catalogue is public to browse
-      allow create, update, delete: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow create, update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isAdmin();
     }
 
     // 3. Customer Consignments / Orders
