@@ -18,7 +18,7 @@ interface AdminReportsProps {
 export default function AdminReports({ orders, products, customers }: AdminReportsProps) {
   // Preset filters
   const [startDate, setStartDate] = useState<string>('2026-03-01'); // historical seeding start
-  const [endDate, setEndDate] = useState<string>('2026-06-05'); // Baseline current date
+  const [endDate, setEndDate] = useState<string>(() => toLocalDateInputString(new Date().toISOString())); // Dynamic today's date
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   
@@ -40,22 +40,25 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
   // Clear filters
   const handleResetFilters = () => {
     setStartDate('2026-03-01');
-    setEndDate('2026-06-05');
+    setEndDate(toLocalDateInputString(new Date().toISOString()));
     setSelectedProductId('');
     setSelectedCustomerId('');
   };
 
   // Preset periods
   const handleSelectPeriodPreset = (preset: 'all' | '30days' | 'june') => {
+    const todayStr = toLocalDateInputString(new Date().toISOString());
     if (preset === 'all') {
       setStartDate('2026-03-01');
-      setEndDate('2026-06-05');
+      setEndDate(todayStr);
     } else if (preset === '30days') {
-      setStartDate('2026-05-06');
-      setEndDate('2026-06-05');
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      setStartDate(toLocalDateInputString(thirtyDaysAgo.toISOString()));
+      setEndDate(todayStr);
     } else if (preset === 'june') {
       setStartDate('2026-06-01');
-      setEndDate('2026-06-05');
+      setEndDate(todayStr);
     }
   };
 
