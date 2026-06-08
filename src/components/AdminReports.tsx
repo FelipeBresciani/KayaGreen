@@ -110,7 +110,7 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
 
     // Sales
     fileContent += `1. BALANÇO DE COMPRAS E VENDAS\r\n`;
-    fileContent += ` - Quantidade total vendida (Unidades): ${report.summary.totalQtySold} pacotes\r\n`;
+    fileContent += ` - Quantidade total vendida (Itens/Unidades): ${report.summary.totalQtySold} volumes\r\n`;
     fileContent += ` - Faturamento finalizado realizado: R$ ${report.summary.totalValueSold.toFixed(2)}\r\n`;
     fileContent += ` - Ticket Médio por pedido concluído: R$ ${report.summary.ticketMedio.toFixed(2)}\r\n`;
     fileContent += ` - Contagem de pedidos sob filtros: ${report.summary.ordersCount} (Concluídos: ${report.summary.completedCount})\r\n`;
@@ -119,8 +119,13 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
     // Products
     fileContent += `2. DESEMPENHO DE PRODUTOS (RANKING DE VENDAS)\r\n`;
     sortedMostSold.forEach((p, idx) => {
-      const gStr = formatGrams(p.totalGrams || 0);
-      fileContent += ` #${idx+1} [${p.name}] - Quantidade: ${p.quantity} pacotes (${gStr}) | Receita: R$ ${p.revenue.toFixed(2)}\r\n`;
+      const matchedProd = products.find(prod => prod.id === p.id || prod.name === p.name);
+      const isUnidade = matchedProd?.saleType === 'unidade';
+      const qtyStr = isUnidade 
+        ? `${p.quantity} ${p.quantity === 1 ? 'unidade' : 'unidades'}` 
+        : `${p.quantity} ${p.quantity === 1 ? 'pacote' : 'pacotes'}`;
+      const sizeStr = isUnidade ? `${p.quantity} un` : formatGrams(p.totalGrams || 0);
+      fileContent += ` #${idx+1} [${p.name}] - Quantidade: ${qtyStr} (${sizeStr}) | Receita: R$ ${p.revenue.toFixed(2)}\r\n`;
     });
     fileContent += divider;
 
@@ -229,7 +234,7 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.setTextColor(15, 23, 42);
-    doc.text(`${report.summary.totalQtySold} Pacotes`, 12 + cardW + 10, cardY + 16);
+    doc.text(`${report.summary.totalQtySold} Itens`, 12 + cardW + 10, cardY + 16);
 
     // Card 3: Ticket Médio
     doc.setFillColor(248, 250, 252);
@@ -277,9 +282,14 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(51, 65, 85);
-      const gStr = formatGrams(p.totalGrams || 0);
+      
+      const matchedProd = products.find(prod => prod.id === p.id || prod.name === p.name);
+      const isUnidade = matchedProd?.saleType === 'unidade';
+      const qtyText = isUnidade ? `${p.quantity} un` : `${p.quantity} pct`;
+      const valText = isUnidade ? `${p.quantity} un` : formatGrams(p.totalGrams || 0);
+      
       doc.text(`${idx + 1}. ${p.name}`, 15, yPos + 4.5);
-      doc.text(`${p.quantity} pct (${gStr})`, 110, yPos + 4.5);
+      doc.text(`${qtyText} (${valText})`, 110, yPos + 4.5);
       doc.text(formatCurrency(p.revenue), 160, yPos + 4.5);
       yPos += 6.5;
     });
@@ -573,7 +583,7 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
                     Quantidade Vendida
                   </span>
                   <span className="text-xl font-black font-mono text-emerald-950 mt-1 block">
-                    {report.summary.totalQtySold} pacotes
+                    {report.summary.totalQtySold} itens
                   </span>
                   <p className="text-[10px] text-slate-400 mt-2">Volume comercializado sob filtros</p>
                 </div>
@@ -618,6 +628,8 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
                     {sortedMostSold.slice(0, 5).map((p, idx) => {
                       let percent = 0;
                       let valueLabel = '';
+                      const matchedProd = products.find(prod => prod.id === p.id || prod.name === p.name);
+                      const isUnidade = matchedProd?.saleType === 'unidade';
                       
                       if (productSortBy === 'revenue') {
                         const totalRev = report.summary.totalValueSold || 1;
@@ -626,11 +638,11 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
                       } else if (productSortBy === 'weight') {
                         const totalWeight = report.products.mostSold.reduce((sum, item) => sum + (item.totalGrams || 0), 0) || 1;
                         percent = Math.min(((p.totalGrams || 0) / totalWeight) * 100, 100);
-                        valueLabel = formatGrams(p.totalGrams || 0);
+                        valueLabel = isUnidade ? `${p.quantity || 0} un (Unit.)` : formatGrams(p.totalGrams || 0);
                       } else {
                         const totalUnits = report.summary.totalQtySold || 1;
                         percent = Math.min(((p.quantity || 0) / totalUnits) * 100, 100);
-                        valueLabel = `${p.quantity || 0} pct`;
+                        valueLabel = isUnidade ? `${p.quantity || 0} un` : `${p.quantity || 0} pct`;
                       }
 
                       const colors = ['bg-emerald-600', 'bg-teal-500', 'bg-indigo-600', 'bg-purple-500', 'bg-amber-500'];
@@ -741,6 +753,8 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
                     {sortedProducts.map((p, idx) => {
                       const isTopPerformance = idx < 3;
                       const hasVendas = p.quantity > 0 || p.revenue > 0 || (p.totalGrams && p.totalGrams > 0);
+                      const matchedProd = products.find(prod => prod.id === p.id || prod.name === p.name);
+                      const isUnidade = matchedProd?.saleType === 'unidade';
                       
                       return (
                         <tr key={idx} className={`border-b border-slate-50 hover:bg-slate-50/60 transition ${!hasVendas ? 'opacity-65' : ''}`}>
@@ -765,10 +779,10 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
                             {formatCurrency(p.revenue)}
                           </td>
                           <td className="py-3 text-center font-mono text-slate-600">
-                            {p.quantity} pct
+                            {isUnidade ? `${p.quantity} un` : `${p.quantity} pct`}
                           </td>
                           <td className="py-3 text-right pr-2 font-mono text-amber-800 font-semibold">
-                            {formatGrams(p.totalGrams || 0)}
+                            {isUnidade ? `${p.quantity} un` : formatGrams(p.totalGrams || 0)}
                           </td>
                         </tr>
                       );

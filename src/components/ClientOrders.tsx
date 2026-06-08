@@ -222,23 +222,27 @@ export default function ClientOrders({ orders, currentCustomerId }: ClientOrders
                   <FileText className="w-3.5 h-3.5" /> Detalhamento de Itens Adquiridos
                 </h4>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-105 divide-y divide-slate-150">
-                  {focusedOrder.items.map((i, idx) => (
-                    <div key={idx} className="py-2.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                      <div>
-                        <p className="font-bold text-slate-800">{i.productName}</p>
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                          {i.unit === 'un' ? (
-                            `${i.quantity} unidade(s) (${formatCurrency(i.pricePerWeight)}/unid)`
-                          ) : (
-                            `${i.quantity} pacote(s) x ${i.weight}${i.unit} (${formatCurrency(i.pricePerWeight)}/unid)`
-                          )}
-                        </p>
+                  {focusedOrder.items.map((i, idx) => {
+                    const isUnit = i.unit === 'un' || i.weight === 1;
+                    const cleanName = i.productName.replace(' - Pacote 1g', ' - Unitário');
+                    return (
+                      <div key={idx} className="py-2.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
+                        <div>
+                          <p className="font-bold text-slate-800">{cleanName}</p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {isUnit ? (
+                              `${i.quantity} unidade(s) (${formatCurrency(i.pricePerWeight)}/unid)`
+                            ) : (
+                              `${i.quantity} pacote(s) x ${i.weight}${i.unit} (${formatCurrency(i.pricePerWeight)}/unid)`
+                            )}
+                          </p>
+                        </div>
+                        <span className="font-bold font-mono text-slate-800">
+                          {formatCurrency(i.subtotal)}
+                        </span>
                       </div>
-                      <span className="font-bold font-mono text-slate-800">
-                        {formatCurrency(i.subtotal)}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Subtotal & delivery fee breakdown */}

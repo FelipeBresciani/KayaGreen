@@ -268,7 +268,7 @@ export default function AdminCustomers({ customers, orders, onPromoteAdmin, admi
                         </div>
                         {/* List products names */}
                         <p className="text-[10px] text-slate-500 mt-1.5">
-                          {o.items.map(i => `${i.quantity}x ${i.productName}`).join(', ')}
+                          {o.items.map(i => `${i.quantity}x ${i.productName.replace(' - Pacote 1g', ' - Unitário')}`).join(', ')}
                         </p>
                       </div>
 

@@ -186,7 +186,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                 <th className="p-4">Cultura / Nome</th>
                 <th className="p-4">Descrição</th>
                 <th className="p-4 text-right">Estoque</th>
-                <th className="p-4 text-right">Preços por Porção (20g / 40g / 60g)</th>
+                <th className="p-4 text-right">Preço por Porção</th>
                 <th className="p-4 text-center">Status</th>
                 <th className="p-4 text-center">Ações</th>
               </tr>
@@ -201,15 +201,10 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                 >
                   <td className="p-4 font-semibold text-slate-800">
                     <div className="flex items-center gap-2">
-                      <span className="text-base select-none">🌱</span>
-                      <div className="flex flex-col">
-                        <span>{p.name}</span>
-                        {p.saleType === 'unidade' && (
-                          <span className="self-start mt-0.5 px-1.5 py-0.2 bg-blue-55 text-blue-800 text-[8px] font-black rounded uppercase tracking-wider">
-                            Vendido por Unidade
-                          </span>
-                        )}
-                      </div>
+                       <span className="text-base select-none">🌱</span>
+                       <div className="flex flex-col">
+                         <span>{p.name}</span>
+                       </div>
                     </div>
                   </td>
                   <td className="p-4 max-w-xs truncate" title={p.description}>
@@ -222,14 +217,17 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                   </td>
                   <td className="p-4 text-right">
                     {p.saleType === 'unidade' ? (
-                      <div className="font-mono text-emerald-700 font-bold">
-                        {formatCurrency(p.pricePerWeight)} <span className="text-[10px] text-slate-400 font-normal">/ un</span>
+                      <div className="font-mono text-xs text-slate-650 inline-block text-left">
+                        <div className="flex items-center">
+                          <span className="w-8 inline-block text-slate-400 font-sans uppercase font-bold tracking-wider text-[10px]">1 un:</span>
+                          <strong className="text-emerald-700 font-bold">{formatCurrency(p.pricePerWeight)}</strong>
+                        </div>
                       </div>
                     ) : (
-                      <div className="font-mono text-[10px] space-y-0.5 text-slate-650 inline-block text-left">
-                        <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">20g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong></div>
-                        <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">40g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price40g !== undefined ? p.price40g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 40))}</strong></div>
-                        <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">60g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price60g !== undefined ? p.price60g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 60))}</strong></div>
+                      <div className="font-mono text-xs space-y-0.5 text-slate-650 inline-block text-left">
+                        <div className="flex items-center"><span className="w-8 inline-block text-slate-400 font-sans uppercase font-bold tracking-wider text-[10px]">20g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong></div>
+                        <div className="flex items-center"><span className="w-8 inline-block text-slate-400 font-sans uppercase font-bold tracking-wider text-[10px]">40g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price40g !== undefined ? p.price40g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 40))}</strong></div>
+                        <div className="flex items-center"><span className="w-8 inline-block text-slate-400 font-sans uppercase font-bold tracking-wider text-[10px]">60g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price60g !== undefined ? p.price60g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 60))}</strong></div>
                       </div>
                     )}
                   </td>
@@ -293,11 +291,6 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                   <div className="flex items-center gap-1.5 font-bold text-slate-805 text-xs truncate">
                     <span>🌱</span>
                     <span className="truncate">{p.name}</span>
-                    {p.saleType === 'unidade' && (
-                      <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 text-[8px] font-bold rounded">
-                        Unitário
-                      </span>
-                    )}
                   </div>
                   <button
                     onClick={() => handleToggleStatus(p)}
@@ -318,14 +311,15 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
               <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="space-y-1">
                   <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">
-                    {p.saleType === 'unidade' ? 'Preço do Produto' : 'Tabela de Preços'}
+                    Preço por Porção
                   </span>
                   {p.saleType === 'unidade' ? (
-                    <div className="font-mono text-emerald-700 font-bold text-xs bg-slate-50 px-2 py-1 rounded border border-slate-100 inline-block">
-                      {formatCurrency(p.pricePerWeight)} / unidade
+                    <div className="font-mono text-xs text-slate-650 bg-slate-50 px-2 py-1 rounded border border-slate-100 inline-block">
+                      <span className="text-[10px] text-slate-400 font-sans uppercase font-bold tracking-wider mr-1">1 un:</span>
+                      <strong className="text-emerald-700 font-bold">{formatCurrency(p.pricePerWeight)}</strong>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 gap-1 font-mono text-[10px]">
+                    <div className="grid grid-cols-3 gap-1 font-mono text-[11px]">
                       <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
                         <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">20g</span>
                         <strong className="text-emerald-700">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong>

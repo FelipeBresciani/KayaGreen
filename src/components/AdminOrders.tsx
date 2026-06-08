@@ -296,7 +296,11 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                             type="button"
                             onClick={() => {
                               const cleanPhone = selectedOrder.customerPhone.replace(/\D/g, '');
-                              const itemsList = selectedOrder.items.map(itm => `• ${itm.quantity}x ${itm.productName} (${itm.unit === 'un' ? 'Unitário' : `${itm.weight}${itm.unit || 'g'}`})`).join('\n');
+                              const itemsList = selectedOrder.items.map(itm => {
+                                const isUnit = itm.unit === 'un' || itm.weight === 1;
+                                const cleanName = itm.productName.replace(' - Pacote 1g', ' - Unitário');
+                                return `• ${itm.quantity}x ${cleanName} (${isUnit ? 'Unitário' : `${itm.weight}${itm.unit || 'g'}`})`;
+                              }).join('\n');
                               const msg = `Olá, ${selectedOrder.customerName}! 🌱 Seu pedido de Microverdes Kayagreen acabou de sair para entrega! 🚚\n\n📦 Itens Enviados:\n${itemsList}\n\n💰 Valor Total: R$ ${selectedOrder.total.toFixed(2)}\n💳 Forma de pagamento: ${selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Cartão de Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Cartão de Débito 💳' : 'A combinar'} na entrega.\n\nFique atento para receber seus microverdes fresquinhos em instantes! Muito obrigado. 💚`;
                               const url = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(msg)}`;
                               window.open(url, '_blank');
@@ -309,7 +313,11 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                           <button
                             type="button"
                             onClick={() => {
-                              const itemsList = selectedOrder.items.map(itm => `• ${itm.quantity}x ${itm.productName} (${itm.unit === 'un' ? 'Unitário' : `${itm.weight}${itm.unit || 'g'}`})`).join('\n');
+                              const itemsList = selectedOrder.items.map(itm => {
+                                const isUnit = itm.unit === 'un' || itm.weight === 1;
+                                const cleanName = itm.productName.replace(' - Pacote 1g', ' - Unitário');
+                                return `• ${itm.quantity}x ${cleanName} (${isUnit ? 'Unitário' : `${itm.weight}${itm.unit || 'g'}`})`;
+                              }).join('\n');
                               const subject = `Cultivo Kayagreen: Seus microverdes já saíram para entrega! 🚚`;
                               const body = `Olá, ${selectedOrder.customerName}!\n\nSeu pedido de deliciosos microverdes Kayagreen no valor de R$ ${selectedOrder.total.toFixed(2)} já saiu para entrega! 🚚\n\n📦 Itens enviados:\n${itemsList}\n\nForma de pagamento escolhida: ${selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Cartão de Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Cartão de Débito 💳' : 'A combinar'} na entrega.\n\nEm instantes nosso entregador chegará ao seu endereço cadastrado:\n${selectedOrder.customerAddress}\n\nMuito obrigado pelo seu apoio ao cultivo orgânico e local!\nEquipe Kayagreen`;
                               window.open(`mailto:${selectedOrder.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
@@ -377,23 +385,27 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                     <FileText className="w-3.5 h-3.5 text-slate-400" /> Produtos Solicitados
                   </h4>
                   <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-50">
-                    {selectedOrder.items.map((itm, index) => (
-                      <div key={index} className="p-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
-                        <div className="truncate">
-                          <p className="font-bold text-slate-800 truncate">{itm.productName}</p>
-                          <p className="text-[10px] text-slate-500 font-mono">
-                            {itm.unit === 'un' ? (
-                              `${itm.quantity} unidade(s) (${formatCurrency(itm.pricePerWeight)}/unid)`
-                            ) : (
-                              `${itm.quantity} pacotinho(s) x ${itm.weight}${itm.unit} (${formatCurrency(itm.pricePerWeight)}/unid)`
-                            )}
-                          </p>
+                    {selectedOrder.items.map((itm, index) => {
+                      const isUnit = itm.unit === 'un' || itm.weight === 1;
+                      const cleanName = itm.productName.replace(' - Pacote 1g', ' - Unitário');
+                      return (
+                        <div key={index} className="p-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition">
+                          <div className="truncate">
+                            <p className="font-bold text-slate-800 truncate">{cleanName}</p>
+                            <p className="text-[10px] text-slate-500 font-mono">
+                              {isUnit ? (
+                                `${itm.quantity} unidade(s) (${formatCurrency(itm.pricePerWeight)}/unid)`
+                              ) : (
+                                `${itm.quantity} pacotinho(s) x ${itm.weight}${itm.unit} (${formatCurrency(itm.pricePerWeight)}/unid)`
+                              )}
+                            </p>
+                          </div>
+                          <span className="font-bold text-slate-800 font-mono align-middle pr-1">
+                            {formatCurrency(itm.subtotal)}
+                          </span>
                         </div>
-                        <span className="font-bold text-slate-800 font-mono align-middle pr-1">
-                          {formatCurrency(itm.subtotal)}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Pricing summaries block */}

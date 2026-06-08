@@ -285,16 +285,21 @@ export const generateReportData = (
   const ticketMedio = completedOrders.length > 0 ? (totalValueSold / completedOrders.length) : 0;
 
   // 2. Relatório de Produtos
-  const productSalesMap: Record<string, { name: string; quantity: number; revenue: number; totalGrams: number }> = {};
+  const productSalesMap: Record<string, { id: string; name: string; quantity: number; revenue: number; totalGrams: number }> = {};
   products.forEach(p => {
-    productSalesMap[p.id] = { name: p.name, quantity: 0, revenue: 0, totalGrams: 0 };
+    productSalesMap[p.id] = { id: p.id, name: p.name, quantity: 0, revenue: 0, totalGrams: 0 };
   });
 
   filteredOrders.forEach(o => {
     if (o.status !== 'cancelado') {
       o.items.forEach(itm => {
         if (!productSalesMap[itm.productId]) {
-          productSalesMap[itm.productId] = { name: itm.productName, quantity: 0, revenue: 0, totalGrams: 0 };
+          productSalesMap[itm.productId] = { id: Math.random().toString(), name: itm.productName, quantity: 0, revenue: 0, totalGrams: 0 };
+          // If the product is found in original products, use its actual ID
+          const matchedProd = products.find(p => p.name === itm.productName || p.id === itm.productId);
+          if (matchedProd) {
+            productSalesMap[itm.productId].id = matchedProd.id;
+          }
         }
         productSalesMap[itm.productId].quantity += itm.quantity || 0;
         const itmWeight = Number(itm.weight || 20);

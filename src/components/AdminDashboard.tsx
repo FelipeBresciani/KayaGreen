@@ -36,7 +36,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
       ...shippingConfig,
       fixedFee: Number(editFixedFee),
       freeShippingThreshold: Number(editFreeThreshold),
-      localCity: editLocalCity.trim() || 'Florianópolis'
+      localCity: editLocalCity.trim() || 'São Caetano do Sul'
     });
     setShippingFeedback('Configurações gerais de frete salvas com sucesso!');
     setIsEditingShipping(false);
@@ -618,18 +618,8 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold"
                     />
                   </div>
-                  <div>
-                    <label className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold block mb-1">
-                      Frete Grátis acima de (R$)
-                    </label>
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      value={editFreeThreshold}
-                      onChange={(e) => setEditFreeThreshold(Number(e.target.value))}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold"
-                    />
+                  <div className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-100 text-[10.5px] text-amber-900 leading-normal font-medium">
+                    <span>💡 Envio para fora de {editLocalCity || 'São Caetano do Sul'}: Fixado via sistema a <strong>R$ 4,00 por Km</strong>.</span>
                   </div>
                   <button
                     type="submit"
@@ -646,12 +636,12 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                     <span className="text-xs font-bold text-slate-800">{shippingConfig.localCity}</span>
                   </div>
                   <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-100">
-                    <span className="text-xs text-slate-500">Taxa Padrão</span>
+                    <span className="text-xs text-slate-500">Taxa Padrão Local</span>
                     <span className="text-xs font-bold text-slate-850 font-mono bg-slate-50 border border-slate-100 px-2 py-0.5 rounded">{formatCurrency(shippingConfig.fixedFee || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-100">
-                    <span className="text-xs text-slate-500">Frete Grátis acima de</span>
-                    <span className="text-xs font-bold text-emerald-700 font-mono bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded">{formatCurrency(shippingConfig.freeShippingThreshold || 0)}</span>
+                    <span className="text-xs text-slate-500">Envio Fora de SCS</span>
+                    <span className="text-xs font-bold text-amber-700 font-mono bg-amber-50 border border-amber-100 px-2 py-0.5 rounded">R$ 4,00 / Km</span>
                   </div>
                 </div>
               )}

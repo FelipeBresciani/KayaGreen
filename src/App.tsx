@@ -65,19 +65,20 @@ import {
 const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
   fixedFee: 10.00,
   freeShippingThreshold: 75.00,
-  localCity: 'Florianópolis',
+  localCity: 'São Caetano do Sul',
   greenhouseBairros: {
     'Centro': 5.00,
-    'Trindade': 8.00,
-    'Itacorubi': 8.00,
-    'Córrego Grande': 8.00,
-    'Saco dos Limões': 10.00,
-    'Campeche': 15.00,
-    'Lagoa da Conceição': 12.00,
-    'Ingleses': 20.00,
-    'Jurerê': 20.00,
-    'Coqueiros': 10.00,
-    'Estreito': 10.00
+    'Santa Paula': 8.00,
+    'Barcelona': 8.00,
+    'Santo Antônio': 8.00,
+    'Santa Maria': 8.00,
+    'Cerâmica': 10.00,
+    'Olímpico': 10.00,
+    'Mauá': 12.00,
+    'Nova Gerty': 10.00,
+    'Jardim São Caetano': 12.00,
+    'São José': 10.00,
+    'Oswaldo Cruz': 8.00
   }
 };
 
@@ -324,7 +325,7 @@ export default function App() {
                 name: user.displayName || 'Admin Felipe',
                 email: user.email,
                 phone: '(11) 99999-9999',
-                address: 'Florianópolis, SC - Sede Kayagreen',
+                address: 'São Caetano do Sul, SP - Sede Kayagreen',
                 role: 'admin',
                 createdAt: new Date().toISOString()
               }, { merge: true });
@@ -362,7 +363,7 @@ export default function App() {
                   name: user.displayName || 'Admin Felipe',
                   email: user.email,
                   phone: '(11) 99999-9999',
-                  address: 'Florianópolis, SC - Sede Kayagreen',
+                  address: 'São Caetano do Sul, SP - Sede Kayagreen',
                   role: currentRole,
                   createdAt: new Date().toISOString()
                 });

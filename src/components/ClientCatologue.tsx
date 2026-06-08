@@ -43,27 +43,62 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
   const [orderNotes, setOrderNotes] = useState('');
   const [orderSuccessId, setOrderSuccessId] = useState<string | null>(null);
   const [selectedWeights, setSelectedWeights] = useState<Record<string, number>>({});
+  const [selectedUnitQuantities, setSelectedUnitQuantities] = useState<Record<string, number>>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<'pix' | 'credito' | 'debito'>('pix');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
-  // Shipping choice state
-  const [deliveryMethod, setDeliveryMethod] = useState<'entrega' | 'retirada'>('entrega');
+  // Shipping choice state (now fixed to home delivery)
+  const deliveryMethod: 'entrega' = 'entrega';
+
+  // State to track distance in KM when leaving SCS (São Caetano do Sul)
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState<number>(() => {
+    const addressStr = currentCustomer.address || '';
+    const addressUpper = addressStr.toUpperCase();
+    if (addressUpper.includes('SANTO ANDRÉ') || addressUpper.includes('SANTO ANDRE')) return 6;
+    if (addressUpper.includes('SÃO BERNARDO') || addressUpper.includes('SAO BERNARDO')) return 12;
+    if (addressUpper.includes('SÃO PAULO') || addressUpper.includes('SAO PAULO')) return 18;
+    if (addressUpper.includes('DIADEMA')) return 15;
+    if (addressUpper.includes('MAUÁ') || addressUpper.includes('MAUA')) return 16;
+    return 10; // default distance for other cities
+  });
+
+  // Track address changes to auto-update suggested distance
+  useEffect(() => {
+    const addressStr = currentCustomer.address || '';
+    const addressUpper = addressStr.toUpperCase();
+    if (addressUpper.includes('SANTO ANDRÉ') || addressUpper.includes('SANTO ANDRE')) {
+      setDeliveryDistanceKm(6);
+    } else if (addressUpper.includes('SÃO BERNARDO') || addressUpper.includes('SAO BERNARDO')) {
+      setDeliveryDistanceKm(12);
+    } else if (addressUpper.includes('SÃO PAULO') || addressUpper.includes('SAO PAULO')) {
+      setDeliveryDistanceKm(18);
+    } else if (addressUpper.includes('DIADEMA')) {
+      setDeliveryDistanceKm(15);
+    } else if (addressUpper.includes('MAUÁ') || addressUpper.includes('MAUA')) {
+      setDeliveryDistanceKm(16);
+    } else {
+      setDeliveryDistanceKm(10);
+    }
+  }, [currentCustomer.address]);
+
+  const isLocalSCS = (): boolean => {
+    const addressStr = currentCustomer.address || '';
+    const addressUpper = addressStr.toUpperCase();
+    return addressUpper.includes('SÃO CAETANO DO SUL') || addressUpper.includes('SAO CAETANO DO SUL');
+  };
 
   const getDeliveryFee = (): number => {
-    if (deliveryMethod === 'retirada') return 0;
-    
-    // Auto-free-shipping calculation
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const threshold = shippingConfig?.freeShippingThreshold ?? 75;
-    if (subtotal >= threshold) return 0;
-
     const addressStr = currentCustomer.address || '';
-    
-    // Match customized neighborhood rates
-    const bairrosMap = shippingConfig?.greenhouseBairros ?? {};
     const addressUpper = addressStr.toUpperCase();
     
+    // When leaving SCS, charge R$ 4,00 per km
+    if (!isLocalSCS()) {
+      return deliveryDistanceKm * 4;
+    }
+    
+    // Inside SCS: Match customized neighborhood rates
+    const bairrosMap = shippingConfig?.greenhouseBairros ?? {};
     for (const [bairro, fee] of Object.entries(bairrosMap)) {
       if (addressUpper.includes(bairro.toUpperCase())) {
         return fee;
@@ -85,16 +120,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
     }
   }, [errorMessage]);
 
-  const isProfileIncomplete = !currentCustomer.phone || 
-                              currentCustomer.phone.trim() === '' || 
-                              currentCustomer.phone === '(11) 90000-0000' || 
-                              currentCustomer.phone === '(11) 99999-9999' ||
-                              currentCustomer.phone.replace(/\D/g, '') === '11900000000' ||
-                              currentCustomer.phone.replace(/\D/g, '') === '11999999999' ||
-                              !currentCustomer.address || 
-                              currentCustomer.address.trim() === '' || 
-                              currentCustomer.address === 'Por favor, atualize seu endereço' ||
-                              currentCustomer.address.toLowerCase().includes('kayagreen');
+  const isProfileIncomplete = false;
 
   const showCart = true; // Always display shopping cart as requested
   const setShowCart = (val: boolean) => {
@@ -128,16 +154,17 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
   };
 
   // Cart operations
-  const handleAddToCart = (product: Product, weight: number) => {
+  const handleAddToCart = (product: Product, weight: number, customQty?: number) => {
     const isUnidade = product.saleType === 'unidade';
     const finalWeight = isUnidade ? 1 : weight;
     const price = isUnidade ? product.pricePerWeight : getProductPriceForWeight(product, finalWeight);
+    const qtyToAdd = isUnidade ? (customQty || 1) : 1;
 
     const currentQtyInCart = cart
       .filter(item => item.product.id === product.id)
       .reduce((sum, item) => sum + (item.quantity * item.selectedWeight), 0);
     
-    if (currentQtyInCart + finalWeight > product.availableWeight) {
+    if (currentQtyInCart + (qtyToAdd * finalWeight) > product.availableWeight) {
       if (isUnidade) {
         setErrorMessage(`Estoque insuficiente de ${product.name}! Você já adicionou ${currentQtyInCart} un ao carrinho e o estoque máximo restante é de ${product.availableWeight} un.`);
       } else {
@@ -155,11 +182,11 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
       if (existing) {
         return prev.map(item =>
           item.product.id === product.id && item.selectedWeight === finalWeight
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + qtyToAdd }
             : item
         );
       }
-      return [...prev, { product, quantity: 1, selectedWeight: finalWeight, price }];
+      return [...prev, { product, quantity: qtyToAdd, selectedWeight: finalWeight, price }];
     });
     setShowCart(true);
     setOrderSuccessId(null);
@@ -270,12 +297,13 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
     // Convert cart items to order objects
     const orderItems = cart.map(item => {
+      const isUnidade = item.product.saleType === 'unidade';
       return {
         productId: item.product.id,
-        productName: `${item.product.name} - Pacote ${item.selectedWeight}g`,
+        productName: isUnidade ? `${item.product.name} - Unitário` : `${item.product.name} - Pacote ${item.selectedWeight}g`,
         quantity: item.quantity,
-        weight: item.selectedWeight,
-        unit: 'g' as const,
+        weight: isUnidade ? 1 : item.selectedWeight,
+        unit: (isUnidade ? 'un' : 'g') as 'g' | 'kg' | 'un',
         pricePerWeight: item.price,
         subtotal: item.price * item.quantity
       };
@@ -328,19 +356,6 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
           )}
         </button>
       </div>
-
-      {/* Provisional Profile Completion Warning Banner */}
-      {isProfileIncomplete && (
-        <div className="bg-amber-50/75 border border-amber-200/85 p-4.5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4.5 animate-scale-up">
-          <div className="text-xs text-amber-900 font-sans leading-relaxed flex items-start gap-2.5">
-            <span className="text-xl leading-none">⚠️</span>
-            <div>
-              <p className="font-extrabold text-amber-950">Seu perfil está incompleto!</p>
-              <p className="text-[11px] text-amber-850 mt-0.5">Detectamos número de telefone de teste ou endereço genérico. Por favor, clique no botão <strong className="text-amber-950">"Meu Perfil"</strong> no menu do topo da tela para atualizar seu cadastro com endereço correto de entrega e WhatsApp!</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Error message feedback banner */}
       {errorMessage && (
@@ -404,7 +419,8 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
               else if (remainingWeight >= 20) activeWeight = 20;
             }
 
-            const price = isUnidade ? p.pricePerWeight : getProductPriceForWeight(p, activeWeight);
+            const activeUnitQty = isUnidade ? (selectedUnitQuantities[p.id] || 1) : 1;
+            const price = isUnidade ? p.pricePerWeight * activeUnitQty : getProductPriceForWeight(p, activeWeight);
             const isOutOfStockForCart = isUnidade ? remainingWeight < 1 : remainingWeight < 20;
 
             return (
@@ -415,7 +431,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                 {/* Visual Accent/Status badging */}
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-full select-none">
-                    🌱 {isUnidade ? 'Unidade' : 'Microverdes'}
+                    🌱 Microverdes
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {currentWeightInCart > 0 && (
@@ -455,10 +471,25 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                     {isUnidade ? (
                       <div className="w-[88px] shrink-0 font-sans">
                         <span className="text-[9px] text-slate-400 block font-bold uppercase font-mono tracking-wider mb-1">
-                          Venda
+                          Qtd.
                         </span>
-                        <div className="bg-blue-50 text-blue-800 text-[10px] font-black tracking-wide rounded-xl py-2 px-1 text-center border border-blue-105 select-none leading-normal">
-                          Por Unidade
+                        <div className="relative">
+                          <select
+                            value={activeUnitQty}
+                            onChange={(e) => setSelectedUnitQuantities(prev => ({ ...prev, [p.id]: Number(e.target.value) }))}
+                            className="w-full bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl pl-2.5 pr-6 py-2 appearance-none focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer font-mono transition"
+                          >
+                            {Array.from({ length: Math.min(Math.max(1, p.availableWeight), 20) }, (_, i) => i + 1).map(num => (
+                              <option key={num} value={num} disabled={num > remainingWeight}>
+                                {num} un
+                              </option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-500">
+                            <svg className="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                            </svg>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -497,16 +528,16 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
                     {/* Quick active Add to Cart trigger action */}
                     <button
-                      disabled={isOutOfStock || isOutOfStockForCart || remainingWeight < activeWeight}
-                      onClick={() => handleAddToCart(p, activeWeight)}
+                      disabled={isOutOfStock || isOutOfStockForCart || (isUnidade ? remainingWeight < activeUnitQty : remainingWeight < activeWeight)}
+                      onClick={() => handleAddToCart(p, activeWeight, activeUnitQty)}
                       className={`px-3 py-2 rounded-xl text-xs font-black tracking-tight transition flex items-center gap-1 active:scale-95 shrink-0 h-9.5 cursor-pointer ${
-                        (isOutOfStock || isOutOfStockForCart || remainingWeight < activeWeight)
+                        (isOutOfStock || isOutOfStockForCart || (isUnidade ? remainingWeight < activeUnitQty : remainingWeight < activeWeight))
                           ? 'bg-slate-155 text-slate-400 cursor-not-allowed border border-slate-200/40 select-none'
                           : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs focus:ring-2 focus:ring-emerald-350'
                       }`}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      {isOutOfStockForCart ? 'Sem estoque' : remainingWeight < activeWeight ? 'Esgotado' : 'Adicionar'}
+                      {isOutOfStockForCart ? 'Sem estoque' : (isUnidade ? remainingWeight < activeUnitQty : remainingWeight < activeWeight) ? 'Esgotado' : 'Adicionar'}
                     </button>
                   </div>
                 </div>
@@ -537,7 +568,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                     <div className="truncate">
                       <p className="font-bold text-slate-800 truncate leading-snug">{item.product.name}</p>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        {formatCurrency(item.price)} • Pacote {item.selectedWeight}g
+                        {formatCurrency(item.price)} • {item.product.saleType === 'unidade' ? 'Unitário' : `Pacote ${item.selectedWeight}g`}
                       </p>
                     </div>
 
@@ -593,36 +624,15 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                   </div>
                 </div>
 
-                {/* Method selection (Entrega vs Retirada) */}
+                {/* Method selection (Now fixed to Home Delivery only) */}
                 <div className="space-y-2">
-                  <label className="block font-bold text-slate-700">Como deseja receber?</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryMethod('entrega')}
-                      className={`py-2 px-3 rounded-xl border text-xs font-bold text-center flex items-center justify-center gap-1.5 transition cursor-pointer select-none outline-none ${
-                        deliveryMethod === 'entrega'
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-350'
-                      }`}
-                    >
-                      <Truck className="w-3.5 h-3.5" />
-                      <span>Entrega em Casa</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryMethod('retirada')}
-                      className={`py-2 px-3 rounded-xl border text-xs font-bold text-center flex items-center justify-center gap-1.5 transition cursor-pointer select-none outline-none ${
-                        deliveryMethod === 'retirada'
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-350'
-                      }`}
-                    >
-                      <Home className="w-3.5 h-3.5" />
-                      <span>Retirar na Estufa</span>
-                    </button>
+                  <label className="block text-xs font-bold text-slate-705 uppercase tracking-wide">Como deseja receber?</label>
+                  <div className="py-2.5 px-3.5 rounded-xl border border-emerald-250 bg-emerald-50/40 text-emerald-850 text-xs font-extrabold flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-emerald-600 animate-pulse" />
+                    <span>Entrega Agendada em Domicílio</span>
                   </div>
                 </div>
+
 
                 {/* Shipping cost indicator box */}
                 <div className="bg-white rounded-xl border border-slate-200/70 p-3 space-y-2">
@@ -632,25 +642,22 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                   </div>
                   
                   <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-600">Taxa de Frete / Envio:</span>
-                    {deliveryMethod === 'retirada' ? (
-                      <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]">Grátis (Retirada)</span>
-                    ) : deliveryFee === 0 ? (
-                      <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-0.5 animate-pulse">🚚 Frete Grátis</span>
-                    ) : (
-                      <span className="font-mono font-bold text-slate-800">{formatCurrency(deliveryFee)}</span>
-                    )}
+                    <span className="text-slate-600">Taxa de Frete:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {formatCurrency(deliveryFee)}
+                    </span>
                   </div>
                   
-                  {deliveryMethod === 'entrega' && deliveryFee > 0 && shippingConfig && (
-                    <div className="text-[10px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 flex justify-between">
-                      <span>Faltam <strong className="text-emerald-750 font-mono">{(formatCurrency(shippingConfig.freeShippingThreshold - cartSubtotal))}</strong> para Frete Grátis!</span>
+                  {!isLocalSCS() && (
+                    <div className="text-[9.5px] text-emerald-800 bg-emerald-50/50 p-2 rounded-lg border border-emerald-100 flex justify-between font-semibold">
+                      <span>Cálculo Regional de Envio:</span>
+                      <span>{deliveryDistanceKm} Km × R$ 4,00</span>
                     </div>
                   )}
 
                   <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs text-slate-800 font-extrabold">
                     <span>Total Estimado:</span>
-                    <span className="font-mono text-emerald-800 text-sm font-black">{formatCurrency(cartSubtotal + deliveryFee)}</span>
+                    <span className="font-mono text-emerald-805 text-sm font-black">{formatCurrency(cartSubtotal + deliveryFee)}</span>
                   </div>
                 </div>
 
@@ -728,7 +735,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
               <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 font-sans">
                 {cart.map((item, idx) => (
                   <div key={idx} className="flex justify-between text-slate-705">
-                    <span>{item.quantity}x {item.product.name} ({item.selectedWeight}g)</span>
+                    <span>{item.quantity}x {item.product.name} {item.product.saleType === 'unidade' ? '(Unitário)' : `(${item.selectedWeight}g)`}</span>
                     <span className="font-mono text-slate-800 font-medium">{formatCurrency(item.price * item.quantity)}</span>
                   </div>
                 ))}
@@ -740,12 +747,18 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                 </div>
                 <div className="flex justify-between text-slate-500">
                   <span>Forma de Recebimento</span>
-                  <span className="font-bold text-slate-700">{deliveryMethod === 'entrega' ? '🚚 Entrega em Casa' : '🏠 Retirar na Estufa'}</span>
+                  <span className="font-bold text-slate-700">🚚 Entrega em Casa</span>
                 </div>
+                {!isLocalSCS() && (
+                  <div className="flex justify-between text-slate-500">
+                    <span>Distância de SCS</span>
+                    <span className="font-bold text-slate-700">{deliveryDistanceKm} Km</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-slate-500">
                   <span>Taxa de Envio</span>
                   <span className="font-mono font-bold text-slate-800">
-                    {deliveryMethod === 'retirada' ? 'R$ 0,00' : deliveryFee === 0 ? 'Grátis (Cortesia)' : formatCurrency(deliveryFee)}
+                    {formatCurrency(deliveryFee)}
                   </span>
                 </div>
               </div>
@@ -798,13 +811,6 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                   <span>Débito</span>
                 </button>
               </div>
-            </div>
-
-            {/* Notice block */}
-            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-3 text-center">
-              <p className="text-[11px] text-amber-850 leading-normal font-medium">
-                🚚 <strong>Aviso:</strong> O pagamento será realizado apenas no momento da entrega dos seus microverdes!
-              </p>
             </div>
 
             {/* Buttons path */}
