@@ -11,7 +11,19 @@ import { ShoppingCart, Plus, Minus, Trash2, Home, Phone, ShoppingBag, Eye, Scale
 interface ClientCatalogueProps {
   products: Product[];
   currentCustomer: Customer;
-  onPlaceOrder: (items: { productId: string; productName: string; quantity: number; weight: number; unit: 'g' | 'kg'; pricePerWeight: number; subtotal: number }[], notes?: string) => void;
+  onPlaceOrder: (
+    items: {
+      productId: string;
+      productName: string;
+      quantity: number;
+      weight: number;
+      unit: 'g' | 'kg';
+      pricePerWeight: number;
+      subtotal: number;
+    }[],
+    notes?: string,
+    paymentMethod?: string
+  ) => void;
   onCartChange?: (isOpen: boolean) => void;
 }
 
@@ -28,6 +40,19 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
   const [orderNotes, setOrderNotes] = useState('');
   const [orderSuccessId, setOrderSuccessId] = useState<string | null>(null);
   const [selectedWeights, setSelectedWeights] = useState<Record<string, 20 | 40 | 60>>({});
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<'pix' | 'credito' | 'debito'>('pix');
+
+  const isProfileIncomplete = !currentCustomer.phone || 
+                              currentCustomer.phone.trim() === '' || 
+                              currentCustomer.phone === '(11) 90000-0000' || 
+                              currentCustomer.phone === '(11) 99999-9999' ||
+                              currentCustomer.phone.replace(/\D/g, '') === '11900000000' ||
+                              currentCustomer.phone.replace(/\D/g, '') === '11999999999' ||
+                              !currentCustomer.address || 
+                              currentCustomer.address.trim() === '' || 
+                              currentCustomer.address === 'Por favor, atualize seu endereço' ||
+                              currentCustomer.address.toLowerCase().includes('kayagreen');
 
   const showCart = true; // Always display shopping cart as requested
   const setShowCart = (val: boolean) => {
@@ -43,9 +68,14 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
   // Helper to calculate pack price proportionately to the default seed weight
   const getProductPriceForWeight = (product: Product, weight: number): number => {
-    let baseWeight = 50; 
-    if (product.id === 'prod_2') baseWeight = 100; // Girassol is 100g
-    if (product.id === 'prod_5') baseWeight = 40;  // Coentro is 40g
+    let baseWeight = 20; // Default base weight for new products is 20g
+    if (product.id === 'prod_1') baseWeight = 50;  // Rúcula: price is for 50g
+    if (product.id === 'prod_2') baseWeight = 100; // Girassol: price is for 100g
+    if (product.id === 'prod_3') baseWeight = 50;  // Rabanete: price is for 50g
+    if (product.id === 'prod_4') baseWeight = 50;  // Brócolis: price is for 50g
+    if (product.id === 'prod_5') baseWeight = 40;  // Coentro: price is for 40g
+    if (product.id === 'prod_6') baseWeight = 50;  // Beterraba: price is for 50g
+    if (product.id === 'prod_7') baseWeight = 50;  // Repolho Roxo: price is for 50g
     
     const pricePerGram = product.pricePerWeight / baseWeight;
     return Number((pricePerGram * weight).toFixed(2));
@@ -102,7 +132,12 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isProfileIncomplete) return;
+    setShowConfirmModal(true);
+  };
+
+  const handleFinalOrderConfirm = () => {
+    if (cart.length === 0 || isProfileIncomplete) return;
 
     // Convert cart items to order objects
     const orderItems = cart.map(item => {
@@ -117,12 +152,12 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
       };
     });
 
-    onPlaceOrder(orderItems, orderNotes);
+    onPlaceOrder(orderItems, orderNotes, selectedPayment);
 
     // Reset shopping cart
     setCart([]);
     setOrderNotes('');
-    setShowCart(false);
+    setShowConfirmModal(false);
     
     // Trigger localized visual feedback
     const randomCode = 'PED-' + Math.floor(1000 + Math.random() * 9000);
@@ -166,7 +201,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
       </div>
 
       {/* Provisional Profile Completion Warning Banner */}
-      {(currentCustomer.phone === '(11) 90000-0000' || currentCustomer.address === 'Por favor, atualize seu endereço' || !currentCustomer.phone || !currentCustomer.address) && (
+      {isProfileIncomplete && (
         <div className="bg-amber-50/75 border border-amber-200/85 p-4.5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4.5 animate-scale-up">
           <div className="text-xs text-amber-900 font-sans leading-relaxed flex items-start gap-2.5">
             <span className="text-xl leading-none">⚠️</span>
@@ -377,25 +412,147 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                 <div className="bg-emerald-50/40 p-2.5 rounded-xl border border-emerald-100/50 space-y-1 text-[10.5px]">
                   <p className="font-bold text-emerald-900 flex items-center gap-1">📍 Destinatário</p>
                   <p className="text-slate-700 font-semibold truncate">{currentCustomer.name}</p>
-                  <p className="text-slate-500 truncate">{currentCustomer.address}</p>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentCustomer.address)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-slate-500 hover:text-emerald-700 transition block truncate underline decoration-dotted cursor-pointer"
+                    title="Ver endereço no Google Maps"
+                  >
+                    {currentCustomer.address}
+                  </a>
                   <p className="text-slate-400 mt-1 pl-1 border-l border-emerald-300">
                     O pedido será registrado instantaneamente com seus dados cadastrados.
                   </p>
                 </div>
 
                 {/* Submit button */}
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 shadow transition-all duration-150 active:scale-97"
-                >
-                  <ShoppingBag className="w-4 h-4" /> Encomendar Microverdes
-                </button>
+                {isProfileIncomplete ? (
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-amber-600 font-bold bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-center">
+                      ⚠️ Você precisa atualizar seu telefone e endereço de entrega no menu superior "Meu Perfil" antes de enviar o pedido.
+                    </p>
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full bg-slate-200 text-slate-400 font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 border border-slate-300 cursor-not-allowed select-none"
+                    >
+                      <ShoppingBag className="w-4 h-4 cursor-not-allowed" /> Pedido Bloqueado (Perfil Incompleto)
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="submit"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 shadow transition-all duration-150 active:scale-97 cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4" /> Encomendar Microverdes
+                  </button>
+                )}
               </form>
             )}
           </div>
         )}
 
       </div>
+      
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-md w-full p-6 space-y-5 animate-scale-up">
+            <div className="text-center space-y-1">
+              <span className="text-3xl">🛒</span>
+              <h3 className="text-base font-extrabold text-slate-900 leading-tight">Confirmar Encomenda</h3>
+              <p className="text-xs text-slate-500">Por favor, escolha um método de pagamento e confirme seus dados.</p>
+            </div>
+
+            {/* Order total info */}
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100 space-y-2.5 text-xs">
+              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 font-sans">
+                {cart.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-slate-705">
+                    <span>{item.quantity}x {item.product.name} ({item.selectedWeight}g)</span>
+                    <span className="font-mono text-slate-800 font-medium">{formatCurrency(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-slate-200/60 pt-2 flex justify-between font-bold text-sm text-slate-800">
+                <span>Total a Pagar</span>
+                <span className="font-mono text-emerald-700">{formatCurrency(cartSubtotal)}</span>
+              </div>
+            </div>
+
+            {/* Payment Method Selector */}
+            <div className="space-y-2.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                Forma de Pagamento na Entrega:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayment('pix')}
+                  className={`py-2 px-3 rounded-xl border-2 text-xs font-bold transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedPayment === 'pix'
+                      ? 'border-emerald-500 bg-emerald-50/40 text-emerald-800'
+                      : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
+                  }`}
+                >
+                  <span className="text-md">📱</span>
+                  <span>Pix</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayment('credito')}
+                  className={`py-2 px-3 rounded-xl border-2 text-xs font-bold transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedPayment === 'credito'
+                      ? 'border-emerald-500 bg-emerald-50/40 text-emerald-800'
+                      : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
+                  }`}
+                >
+                  <span className="text-md">💳</span>
+                  <span>Crédito</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayment('debito')}
+                  className={`py-2 px-3 rounded-xl border-2 text-xs font-bold transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
+                    selectedPayment === 'debito'
+                      ? 'border-emerald-500 bg-emerald-50/40 text-emerald-800'
+                      : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
+                  }`}
+                >
+                  <span className="text-md">🏦</span>
+                  <span>Débito</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notice block */}
+            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-3 text-center">
+              <p className="text-[11px] text-amber-850 leading-normal font-medium">
+                🚚 <strong>Aviso:</strong> O pagamento será realizado apenas no momento da entrega dos seus microverdes!
+              </p>
+            </div>
+
+            {/* Buttons path */}
+            <div className="flex gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl border border-slate-200 transition text-xs cursor-pointer text-center select-none"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleFinalOrderConfirm}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition text-xs cursor-pointer text-center select-none shadow-sm"
+              >
+                Confirmar e Encomendar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

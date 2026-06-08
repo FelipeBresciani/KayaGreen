@@ -47,6 +47,7 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  paymentMethod?: string;
   statusHistory: {
     status: OrderStatus;
     updatedAt: string;

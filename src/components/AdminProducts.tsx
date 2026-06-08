@@ -18,6 +18,17 @@ interface AdminProductsProps {
 // Fallback image url for any newly created products so they still render nicely elsewhere
 const DEFAULT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1550345332-09e3ac987658?auto=format&fit=crop&q=80&w=400';
 
+const getProductBaseWeight = (productId: string): number => {
+  if (productId === 'prod_1') return 50;
+  if (productId === 'prod_2') return 100;
+  if (productId === 'prod_3') return 50;
+  if (productId === 'prod_4') return 50;
+  if (productId === 'prod_5') return 40;
+  if (productId === 'prod_6') return 50;
+  if (productId === 'prod_7') return 50;
+  return 20; // Default base weight for new products is 20g
+};
+
 export default function AdminProducts({ products, onAddProduct, onUpdateProduct, onDeleteProduct }: AdminProductsProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -28,7 +39,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
   const [description, setDescription] = useState('');
   const [availableWeight, setAvailableWeight] = useState(1000);
   const [unit, setUnit] = useState<WeightUnit>('g');
-  const [pricePerWeight, setPricePerWeight] = useState(15.00);
+  const [pricePerWeight, setPricePerWeight] = useState(6.00); // Default to R$ 6.00 per 20g
   const [status, setStatus] = useState<'ativo' | 'inativo'>('ativo');
 
   const openAddModal = () => {
@@ -37,7 +48,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
     setDescription('');
     setAvailableWeight(1000);
     setUnit('g');
-    setPricePerWeight(15.00);
+    setPricePerWeight(6.00);
     setStatus('ativo');
     setIsModalOpen(true);
   };
@@ -45,36 +56,43 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
   const openEditModal = (p: Product) => {
     setEditingProduct(p);
     setName(p.name);
-    setDescription(p.description);
+    setDescription(p.description || '');
     setAvailableWeight(p.availableWeight);
     setUnit(p.unit);
-    setPricePerWeight(p.pricePerWeight);
+    // Convert base price to 20g price for display
+    const baseWeight = getProductBaseWeight(p.id);
+    const price20g = (p.pricePerWeight / baseWeight) * 20;
+    setPricePerWeight(Number(price20g.toFixed(2)));
     setStatus(p.status);
     setIsModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !description || pricePerWeight <= 0 || availableWeight < 0) return;
+    if (!name || pricePerWeight <= 0 || availableWeight < 0) return;
+
+    // Convert the 20g input price back to base price for DB consistency
+    const baseWeight = getProductBaseWeight(editingProduct ? editingProduct.id : '');
+    const calculatedDbPrice = (pricePerWeight / 20) * baseWeight;
 
     if (editingProduct) {
       onUpdateProduct({
         id: editingProduct.id,
         name,
-        description,
+        description: description || '',
         availableWeight: Number(availableWeight),
         unit,
-        pricePerWeight: Number(pricePerWeight),
+        pricePerWeight: Number(calculatedDbPrice.toFixed(2)),
         image: editingProduct.image || DEFAULT_FALLBACK_IMAGE,
         status,
       });
     } else {
       onAddProduct({
         name,
-        description,
+        description: description || '',
         availableWeight: Number(availableWeight),
         unit,
-        pricePerWeight: Number(pricePerWeight),
+        pricePerWeight: Number(calculatedDbPrice.toFixed(2)),
         image: DEFAULT_FALLBACK_IMAGE,
         status,
       });
@@ -136,7 +154,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                 <th className="p-4">Descrição</th>
                 <th className="p-4 text-center">Unidade</th>
                 <th className="p-4 text-right">Estoque</th>
-                <th className="p-4 text-right">Preço</th>
+                <th className="p-4 text-right">Preço (20g)</th>
                 <th className="p-4 text-center">Status</th>
                 <th className="p-4 text-center">Ações</th>
               </tr>
@@ -159,7 +177,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                     {p.description}
                   </td>
                   <td className="p-4 text-center font-medium font-mono text-slate-500">
-                    {p.unit === 'g' ? '50g (Pacote)' : '1kg'}
+                    {p.unit === 'g' ? '20g (Pacote)' : '1kg'}
                   </td>
                   <td className="p-4 text-right font-bold font-mono">
                     <span className={`${p.availableWeight <= 200 ? 'text-amber-600' : 'text-slate-700'}`}>
@@ -167,7 +185,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                     </span>
                   </td>
                   <td className="p-4 text-right font-bold font-mono text-emerald-700">
-                    {formatCurrency(p.pricePerWeight)}
+                    {formatCurrency((p.pricePerWeight / getProductBaseWeight(p.id)) * 20)}
                   </td>
                   <td className="p-4 text-center">
                     <button
@@ -248,8 +266,8 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
 
               <div className="border-t border-slate-100 pt-3 flex items-center justify-between font-mono text-[10px] gap-2">
                 <div>
-                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Preço base</span>
-                  <span className="font-bold text-emerald-700 text-xs">{formatCurrency(p.pricePerWeight)}</span>
+                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Preço (20g)</span>
+                  <span className="font-bold text-emerald-700 text-xs">{formatCurrency((p.pricePerWeight / getProductBaseWeight(p.id)) * 20)}</span>
                 </div>
                 <div className="text-right">
                   <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Disponível ({p.unit})</span>
@@ -347,7 +365,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
               
               {/* Product NAME */}
               <div>
-                <label className="block text-xs font-bold text-slate-705 mb-1">Nome do Produto</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nome do Produto</label>
                 <input
                   type="text"
                   required
@@ -360,9 +378,8 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
 
               {/* Product DESCRIPTION */}
               <div>
-                <label className="block text-xs font-bold text-slate-705 mb-1">Descrição</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Descrição (Opcional)</label>
                 <textarea
-                  required
                   rows={2}
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -376,7 +393,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                 
                 {/* Available Weight */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-705 mb-1 flex items-center gap-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
                     <Scale className="w-3.5 h-3.5 text-emerald-600" /> Estoque
                   </label>
                   <input
@@ -391,7 +408,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
 
                 {/* Weight Unit */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-705 mb-1">Unidade</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Unidade</label>
                   <select
                     value={unit}
                     onChange={e => setUnit(e.target.value as WeightUnit)}
@@ -404,8 +421,8 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
 
                 {/* Price per weight unit */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-705 mb-1 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> Preço (R$)
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1 whitespace-nowrap">
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" /> Preço por 20g (R$)
                   </label>
                   <input
                     type="number"

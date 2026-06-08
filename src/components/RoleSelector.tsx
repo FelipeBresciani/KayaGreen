@@ -85,7 +85,11 @@ export default function RoleSelector({
       state: ''
     };
 
-    if (!addressStr || addressStr.toLowerCase().includes('atualize') || addressStr.toLowerCase().includes('favor')) {
+    if (!addressStr || 
+        addressStr.toLowerCase().includes('atualize') || 
+        addressStr.toLowerCase().includes('favor') || 
+        addressStr.toLowerCase().includes('kayagreen') || 
+        addressStr.toLowerCase().includes('sede')) {
       return parts;
     }
 
@@ -149,10 +153,22 @@ export default function RoleSelector({
   const initForm = () => {
     if (activeCustomer) {
       setEditName(activeCustomer.name || '');
-      setEditPhone(formatPhone(activeCustomer.phone || ''));
+      
+      const loadedPhone = activeCustomer.phone || '';
+      const isDummyPhone = loadedPhone === '(11) 90000-0000' || 
+                            loadedPhone === '(11) 99999-9999' || 
+                            loadedPhone.replace(/\D/g, '') === '11900000000' || 
+                            loadedPhone.replace(/\D/g, '') === '11999999999' || 
+                            loadedPhone.trim() === '';
+      setEditPhone(isDummyPhone ? '' : formatPhone(loadedPhone));
       
       const rawAddress = activeCustomer.address || '';
-      const parsed = parseAddressString(rawAddress);
+      const isDummyAddress = rawAddress.toLowerCase().includes('atualize') || 
+                             rawAddress.toLowerCase().includes('favor') || 
+                             rawAddress.toLowerCase().includes('kayagreen') || 
+                             rawAddress.toLowerCase().includes('sede');
+      const parsed = isDummyAddress ? { cep: '', streetAndNum: '', complement: '', neighborhood: '', city: '', state: 'SP' } : parseAddressString(rawAddress);
+      
       setEditCep(parsed.cep ? formatCep(parsed.cep) : '');
       setEditStreetAndNum(parsed.streetAndNum || '');
       setEditComplement(parsed.complement || '');
@@ -221,7 +237,7 @@ export default function RoleSelector({
   );
 
   const displayedNotifications = notifications.filter(
-    n => n.recipient === currentRole && (currentRole === 'admin' || n.customerId === currentCustomerId)
+    n => !n.isRead && n.recipient === currentRole && (currentRole === 'admin' || n.customerId === currentCustomerId)
   ).slice(0, 10);
 
   return (
@@ -443,7 +459,7 @@ export default function RoleSelector({
                     required
                     value={editPhone}
                     onChange={e => setEditPhone(formatPhone(e.target.value))}
-                    placeholder="Ex: (11) 99999-9999"
+                    placeholder="(11) 99999-9999"
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-650 focus:outline-none focus:border-emerald-500 font-sans transition-colors"
                   />
                 </div>

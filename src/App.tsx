@@ -379,7 +379,7 @@ export default function App() {
                   uid: user.uid,
                   name: user.displayName || 'Novo Cliente',
                   email: user.email || '',
-                  phone: '(11) 90000-0000',
+                  phone: '',
                   address: 'Por favor, atualize seu endereço',
                   role: currentRole,
                   createdAt: new Date().toISOString()
@@ -681,7 +681,8 @@ export default function App() {
       pricePerWeight: number;
       subtotal: number;
     }[],
-    notes?: string
+    notes?: string,
+    paymentMethod?: string
   ) => {
     const activeCustomer = customers.find(c => c.id === currentCustomerId);
     if (!activeCustomer) return;
@@ -703,6 +704,7 @@ export default function App() {
       createdAt: nowISO,
       updatedAt: nowISO,
       notes: notes || '',
+      paymentMethod: paymentMethod || '',
       statusHistory: [
         { status: 'aguardando_aprovacao', updatedAt: nowISO, comment: 'Pedido submetido pelo cliente. Aguardando aprovação financeira.' }
       ]
@@ -1056,7 +1058,15 @@ export default function App() {
           {/* Botanical safety footer */}
           <div className="border-t border-slate-100 pt-4 text-[10px] text-slate-400 leading-normal space-y-1 mt-6">
             <p>🔄 Integridade da Estufa: 100%</p>
-            <p>📍 São Paulo, SP - Brasil</p>
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=S%C3%A3o+Caetano+do+Sul+-+SP+-+Brasil"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 hover:text-emerald-600 transition cursor-pointer"
+              title="Ver no Google Maps"
+            >
+              <span>📍 São Caetano do Sul - SP - Brasil</span>
+            </a>
           </div>
         </aside>
 

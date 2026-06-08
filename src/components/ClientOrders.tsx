@@ -132,6 +132,14 @@ export default function ClientOrders({ orders, currentCustomerId }: ClientOrders
                   <p className="text-[10px] text-slate-400 mt-1">
                     Fizeram o pedido em: {formatDateTimeString(focusedOrder.createdAt)}
                   </p>
+                  {focusedOrder.paymentMethod && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px]">
+                      <span className="text-slate-500 font-medium">Pagamento na entrega:</span>
+                      <span className="bg-emerald-50 text-emerald-800 border border-emerald-100 font-bold px-1.5 py-0.5 rounded text-[9px] uppercase">
+                        {focusedOrder.paymentMethod === 'pix' ? 'Pix 📱' : focusedOrder.paymentMethod === 'credito' ? 'Crédito 💳' : focusedOrder.paymentMethod === 'debito' ? 'Débito 💳' : focusedOrder.paymentMethod}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-left sm:text-right">

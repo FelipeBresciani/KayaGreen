@@ -36,7 +36,7 @@ export default function LoginScreen() {
           uid: user.uid,
           name: user.displayName || 'Novo Cliente',
           email: user.email || '',
-          phone: '(11) 90000-0000',
+          phone: '',
           address: 'Por favor, atualize seu endereço',
           role: 'cliente',
           createdAt: new Date().toISOString()

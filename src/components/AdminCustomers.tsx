@@ -202,33 +202,21 @@ export default function AdminCustomers({ customers, orders, onPromoteAdmin, admi
                       <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
                     </button>
                   </div>
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100/50 flex items-center gap-2 sm:col-span-2">
-                    <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="text-slate-650 leading-relaxed truncate" title={activeCustomer.address}>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeCustomer.address)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bg-slate-50 hover:bg-emerald-50/50 p-2.5 rounded-xl border border-slate-100/50 hover:border-emerald-200 flex items-center gap-2 sm:col-span-2 transition cursor-pointer group"
+                    title="Ver endereço no Google Maps"
+                  >
+                    <MapPin className="w-4 h-4 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
+                    <span className="text-slate-650 group-hover:text-emerald-800 leading-relaxed truncate font-medium">
                       {activeCustomer.address}
                     </span>
-                  </div>
+                  </a>
                 </div>
 
-                {/* Account role settings */}
-                {onPromoteAdmin && (
-                  <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-xl flex items-center justify-between gap-3 text-xs">
-                    <div className="space-y-0.5">
-                      <p className="font-extrabold text-slate-800">Controle de Privilégios</p>
-                      <p className="text-[10px] text-slate-400">Determine se este cadastro possui privilégios de Operador/Admin no sistema.</p>
-                    </div>
-                    <button
-                      onClick={() => onPromoteAdmin(activeCustomer.id, !adminIds.includes(activeCustomer.id))}
-                      className={`font-black text-[9px] uppercase tracking-wider py-1.5 px-3.5 rounded-lg transition shrink-0 active:scale-95 ${
-                        adminIds.includes(activeCustomer.id)
-                          ? "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
-                          : "bg-emerald-600 hover:bg-emerald-500 text-white shadow"
-                      }`}
-                    >
-                      {adminIds.includes(activeCustomer.id) ? "Remover Admin ✕" : "Tornar Admin 🛡️"}
-                    </button>
-                  </div>
-                )}
+
               </div>
 
               {/* Stats Grid for Selected Customer */}

@@ -284,8 +284,42 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                       })}
                     </div>
                     {selectedOrder.status === 'em_entrega' && (
-                      <div className="mt-2 text-center bg-blue-50 text-blue-850 text-[10px] font-bold py-1 px-2.5 rounded-lg border border-blue-100 flex items-center justify-center gap-1.5 animate-pulse">
-                        <span>🔔 Notificação de envio encaminhada ao WhatsApp e E-mail!</span>
+                      <div className="mt-2.5 p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl space-y-2">
+                        <div className="text-center text-[10px] font-bold text-slate-700 flex flex-col gap-1">
+                          <span className="text-sm">🌱 Alerta de Entrega Manual</span>
+                          <span className="text-[9px] text-slate-500 font-normal leading-normal">
+                            Para evitar taxas de APIs de WhatsApp, você pode disparar mensagens e e-mails de forma gratuita usando os botões rápidos abaixo com alertas pré-configurados!
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cleanPhone = selectedOrder.customerPhone.replace(/\D/g, '');
+                              const itemsList = selectedOrder.items.map(itm => `• ${itm.quantity}x ${itm.productName} (${itm.weight}${itm.unit || 'g'})`).join('\n');
+                              const msg = `Olá, ${selectedOrder.customerName}! 🌱 Seu pedido de Microverdes Kayagreen acabou de sair para entrega! 🚚\n\n📦 Itens Enviados:\n${itemsList}\n\n💰 Valor Total: R$ ${selectedOrder.total.toFixed(2)}\n💳 Forma de pagamento: ${selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Cartão de Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Cartão de Débito 💳' : 'A combinar'} na entrega.\n\nFique atento para receber seus microverdes fresquinhos em instantes! Muito obrigado. 💚`;
+                              const url = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(msg)}`;
+                              window.open(url, '_blank');
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[9.5px] py-2 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition shadow-xs"
+                            title="Disparar aviso por WhatsApp"
+                          >
+                            <span>📱 Enviar WhatsApp</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const itemsList = selectedOrder.items.map(itm => `• ${itm.quantity}x ${itm.productName} (${itm.weight}${itm.unit || 'g'})`).join('\n');
+                              const subject = `Cultivo Kayagreen: Seus microverdes já saíram para entrega! 🚚`;
+                              const body = `Olá, ${selectedOrder.customerName}!\n\nSeu pedido de deliciosos microverdes Kayagreen no valor de R$ ${selectedOrder.total.toFixed(2)} já saiu para entrega! 🚚\n\n📦 Itens enviados:\n${itemsList}\n\nForma de pagamento escolhida: ${selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Cartão de Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Cartão de Débito 💳' : 'A combinar'} na entrega.\n\nEm instantes nosso entregador chegará ao seu endereço cadastrado:\n${selectedOrder.customerAddress}\n\nMuito obrigado pelo seu apoio ao cultivo orgânico e local!\nEquipe Kayagreen`;
+                              window.open(`mailto:${selectedOrder.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+                            }}
+                            className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-[9.5px] py-2 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition shadow-xs text-center justify-center"
+                            title="Disparar aviso por E-mail"
+                          >
+                            <span>✉️ Enviar E-mail</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -300,10 +334,32 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                     <p className="font-bold text-slate-800">{selectedOrder.customerName}</p>
                     <p className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-slate-450" /> {selectedOrder.customerPhone}</p>
                     <p className="truncate" title={selectedOrder.customerEmail}>✉️ {selectedOrder.customerEmail}</p>
-                    <p className="flex items-start gap-1.5 pt-1 border-t border-slate-100/60 mt-1">
-                      <Home className="w-3 h-3 text-slate-450 shrink-0 mt-0.5" />
-                      <span>{selectedOrder.customerAddress}</span>
-                    </p>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.customerAddress)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-start gap-1.5 pt-1 border-t border-slate-100/60 mt-1 hover:text-emerald-700 transition cursor-pointer group"
+                      title="Ver no Google Maps"
+                    >
+                      <Home className="w-3 h-3 text-slate-450 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <span className="underline decoration-dotted group-hover:no-underline">{selectedOrder.customerAddress}</span>
+                    </a>
+                    {selectedOrder.paymentMethod && (
+                      <div className="pt-2 border-t border-slate-100/60 mt-1.5 text-xs flex items-center justify-between">
+                        <span className="font-semibold text-slate-400 text-[10px] uppercase">Forma de Pagamento:</span>
+                        <span className="bg-emerald-50 text-emerald-800 border border-emerald-100 font-bold px-2 py-0.5 rounded text-[10px] uppercase">
+                          {selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Débito 💳' : selectedOrder.paymentMethod} (Na Entrega)
+                        </span>
+                      </div>
+                    )}
+                    {selectedOrder.notes && (
+                      <div className="pt-2 border-t border-slate-100/60 mt-1.5 text-[11px]">
+                        <span className="font-semibold text-slate-400 text-[10px] uppercase block mb-1">Observações:</span>
+                        <div className="bg-slate-100/60 p-2 rounded-lg border border-slate-200/50 text-slate-700 leading-normal italic">
+                          "{selectedOrder.notes}"
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
