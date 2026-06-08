@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Product, Customer } from '../types';
 import { formatCurrency } from '../utils/helpers';
 import { ShoppingCart, Plus, Minus, Trash2, Home, Phone, ShoppingBag, Eye, Scale, Sparkles, CheckCircle2 } from 'lucide-react';
@@ -42,17 +42,6 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
   const [selectedWeights, setSelectedWeights] = useState<Record<string, 20 | 40 | 60>>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<'pix' | 'credito' | 'debito'>('pix');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Auto-clear error message after 7 seconds
-  useEffect(() => {
-    if (errorMessage) {
-      const timer = setTimeout(() => {
-        setErrorMessage(null);
-      }, 7000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMessage]);
 
   const isProfileIncomplete = !currentCustomer.phone || 
                               currentCustomer.phone.trim() === '' || 
@@ -99,17 +88,6 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
   // Cart operations
   const handleAddToCart = (product: Product, weight: 20 | 40 | 60) => {
     const price = getProductPriceForWeight(product, weight);
-    const currentWeightInCart = cart
-      .filter(item => item.product.id === product.id)
-      .reduce((sum, item) => sum + (item.quantity * item.selectedWeight), 0);
-    
-    if (currentWeightInCart + weight > product.availableWeight) {
-      setErrorMessage(`Estoque insuficiente de ${product.name}! Você já adicionou ${currentWeightInCart}g ao carrinho e o estoque máximo restante é de ${product.availableWeight}g.`);
-      setOrderSuccessId(null);
-      return;
-    }
-
-    setErrorMessage(null);
     setCart(prev => {
       const existing = prev.find(
         item => item.product.id === product.id && item.selectedWeight === weight
@@ -129,21 +107,6 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
   const handleUpdateQuantity = (productId: string, weight: 20 | 40 | 60, delta: number) => {
     setCart(prev => {
-      const itemToUpdate = prev.find(item => item.product.id === productId && item.selectedWeight === weight);
-      if (!itemToUpdate) return prev;
-
-      if (delta > 0) {
-        const currentWeightInCart = prev
-          .filter(item => item.product.id === productId)
-          .reduce((sum, item) => sum + (item.quantity * item.selectedWeight), 0);
-        
-        if (currentWeightInCart + weight > itemToUpdate.product.availableWeight) {
-          setErrorMessage(`Estoque insuficiente! O estoque total para ${itemToUpdate.product.name} é de ${itemToUpdate.product.availableWeight}g.`);
-          return prev;
-        }
-      }
-
-      setErrorMessage(null);
       return prev.map(item => {
         if (item.product.id === productId && item.selectedWeight === weight) {
           const newQty = item.quantity + delta;
@@ -174,42 +137,11 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0 || isProfileIncomplete) return;
-
-    // Validate cart items total weight for each product against available weight
-    for (const item of cart) {
-      const p = products.find(prod => prod.id === item.product.id);
-      if (p) {
-        const colheitaInCart = cart
-          .filter(cit => cit.product.id === p.id)
-          .reduce((sum, cit) => sum + (cit.quantity * cit.selectedWeight), 0);
-        if (colheitaInCart > p.availableWeight) {
-          setErrorMessage(`⚠️ Seu carrinho excede o estoque disponível de ${p.name}! (No carrinho: ${colheitaInCart}g | Disponível: ${p.availableWeight}g)`);
-          return;
-        }
-      }
-    }
-
-    setErrorMessage(null);
     setShowConfirmModal(true);
   };
 
   const handleFinalOrderConfirm = () => {
     if (cart.length === 0 || isProfileIncomplete) return;
-
-    // Final security check for stock
-    for (const item of cart) {
-      const p = products.find(prod => prod.id === item.product.id);
-      if (p) {
-        const colheitaInCart = cart
-          .filter(cit => cit.product.id === p.id)
-          .reduce((sum, cit) => sum + (cit.quantity * cit.selectedWeight), 0);
-        if (colheitaInCart > p.availableWeight) {
-          setErrorMessage(`⚠️ Seu carrinho excede o estoque disponível de ${p.name}! (No carrinho: ${colheitaInCart}g | Disponível: ${p.availableWeight}g)`);
-          setShowConfirmModal(false);
-          return;
-        }
-      }
-    }
 
     // Convert cart items to order objects
     const orderItems = cart.map(item => {
@@ -285,27 +217,6 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
         </div>
       )}
 
-      {/* Error message feedback banner */}
-      {errorMessage && (
-        <div className="bg-rose-50 border border-rose-200/60 p-4 rounded-2xl flex items-start gap-3 animate-scale-up relative">
-          <div className="h-6 w-6 rounded-full bg-rose-105 flex items-center justify-center text-rose-800 shrink-0 text-sm">
-            ⚠️
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-bold text-rose-900 leading-normal mb-0.5">Controle de Estoque</p>
-            <p className="text-xs text-rose-700 leading-relaxed font-semibold">
-              {errorMessage}
-            </p>
-          </div>
-          <button 
-            onClick={() => setErrorMessage(null)} 
-            className="absolute top-3 right-3 text-rose-450 hover:text-rose-800 focus:outline-none transition font-black text-sm cursor-pointer px-1.5 py-0.5"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       {/* Success checkout feedback popup */}
       {orderSuccessId && (
         <div className="bg-emerald-50 border border-emerald-250 p-5 rounded-2xl flex items-start gap-4 animate-scale-up">
@@ -332,53 +243,28 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
         {/* Left column: Products catalog list - Stable layout structure */}
         <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-5 transition-all duration-350">
           {activeProducts.map(p => {
-            const currentWeightInCart = cart
-              .filter(item => item.product.id === p.id)
-              .reduce((sum, item) => sum + (item.quantity * item.selectedWeight), 0);
-            
-            const remainingWeight = p.availableWeight - currentWeightInCart;
-            const isOutOfStock = p.availableWeight < 20;
-
-            let activeWeight = selectedWeights[p.id] || 20;
-            if (activeWeight > remainingWeight && remainingWeight >= 20) {
-              if (remainingWeight >= 60) activeWeight = 60;
-              else if (remainingWeight >= 40) activeWeight = 40;
-              else if (remainingWeight >= 20) activeWeight = 20;
-            }
-
+            const activeWeight = selectedWeights[p.id] || 20;
             const price = getProductPriceForWeight(p, activeWeight);
-            const isOutOfStockForCart = remainingWeight < 20;
-
+            const isOutOfStock = p.availableWeight <= 100; // less than 100g
             return (
               <div
                 key={p.id}
                 className="bg-white rounded-2xl border border-slate-200/60 shadow-xs hover:shadow-xs transition duration-200 flex flex-col justify-between p-5 relative"
               >
                 {/* Visual Accent/Status badging */}
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="flex items-center justify-between gap-2 mb-3">
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-full select-none">
                     🌱 Microverdes
                   </span>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {currentWeightInCart > 0 && (
-                      <span className="bg-emerald-50 text-emerald-700 font-bold text-[9px] px-2 py-0.5 rounded-full border border-emerald-100/40 transition">
-                        No carrinho: {currentWeightInCart}g
-                      </span>
-                    )}
-                    {isOutOfStock ? (
-                      <span className="bg-rose-50 text-rose-600 font-bold text-[9px] px-2 py-0.5 rounded-full border border-rose-100 uppercase tracking-wider font-mono">
-                        Esgotado
-                      </span>
-                    ) : p.availableWeight <= 150 ? (
-                      <span className="bg-amber-50 text-amber-700 font-bold text-[9px] px-2 py-0.5 rounded-full border border-amber-200 uppercase tracking-wider font-mono">
-                        Restam {p.availableWeight}g
-                      </span>
-                    ) : (
-                      <span className="bg-slate-50 text-slate-500 font-bold text-[9px] px-2 py-0.5 rounded-full border border-slate-150 uppercase tracking-wider font-mono">
-                        Estoque: {p.availableWeight}g
-                      </span>
-                    )}
-                  </div>
+                  {isOutOfStock ? (
+                    <span className="bg-rose-50 text-rose-600 font-bold text-[9px] px-2 py-0.5 rounded-full border border-rose-100 uppercase tracking-wider font-mono">
+                      Esgotado
+                    </span>
+                  ) : (
+                    <span className="bg-slate-50 text-slate-500 font-bold text-[9px] px-2 py-0.5 rounded-full border border-slate-150 uppercase tracking-wider font-mono">
+                      Em estoque
+                    </span>
+                  )}
                 </div>
 
                 {/* Content info */}
@@ -404,9 +290,9 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                           onChange={(e) => setSelectedWeights(prev => ({ ...prev, [p.id]: Number(e.target.value) as 20 | 40 | 60 }))}
                           className="w-full bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl pl-2.5 pr-6 py-2 appearance-none focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer font-mono transition"
                         >
-                          <option value={20} disabled={remainingWeight < 20}>20g</option>
-                          <option value={40} disabled={remainingWeight < 40}>40g</option>
-                          <option value={60} disabled={remainingWeight < 60}>60g</option>
+                          <option value={20}>20g</option>
+                          <option value={40}>40g</option>
+                          <option value={60}>60g</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-500">
                           <svg className="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -428,16 +314,15 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
                     {/* Quick active Add to Cart trigger action */}
                     <button
-                      disabled={isOutOfStock || isOutOfStockForCart || remainingWeight < activeWeight}
+                      disabled={isOutOfStock}
                       onClick={() => handleAddToCart(p, activeWeight)}
-                      className={`px-3 py-2 rounded-xl text-xs font-black tracking-tight transition flex items-center gap-1 active:scale-95 shrink-0 h-9.5 cursor-pointer ${
-                        (isOutOfStock || isOutOfStockForCart || remainingWeight < activeWeight)
-                          ? 'bg-slate-155 text-slate-400 cursor-not-allowed border border-slate-200/40 select-none'
+                      className={`px-3 py-2 rounded-xl text-xs font-black tracking-tight transition flex items-center gap-1 active:scale-95 shrink-0 h-9.5 ${
+                        isOutOfStock 
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200/40'
                           : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs focus:ring-2 focus:ring-emerald-350'
                       }`}
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      {isOutOfStockForCart ? 'Sem estoque' : remainingWeight < activeWeight ? 'Esgotado' : 'Adicionar'}
+                      <Plus className="w-3.5 h-3.5" /> Adicionar
                     </button>
                   </div>
                 </div>
@@ -457,51 +342,42 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
             {/* Cart list elements */}
             <div className="p-4 border-b border-slate-100 divide-y divide-slate-105 max-h-72 overflow-y-auto">
-              {cart.map(item => {
-                const totalWeightInCartForThisProduct = cart
-                  .filter(cit => cit.product.id === item.product.id)
-                  .reduce((sum, cit) => sum + (cit.quantity * cit.selectedWeight), 0);
-                const isPlusDisabled = totalWeightInCartForThisProduct + item.selectedWeight > item.product.availableWeight;
+              {cart.map(item => (
+                <div key={`${item.product.id}-${item.selectedWeight}`} className="py-3 flex items-center justify-between gap-3 text-xs first:pt-0 last:pb-0">
+                  <div className="truncate">
+                    <p className="font-bold text-slate-800 truncate leading-snug">{item.product.name}</p>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                      {formatCurrency(item.price)} • Pacote {item.selectedWeight}g
+                    </p>
+                  </div>
 
-                return (
-                  <div key={`${item.product.id}-${item.selectedWeight}`} className="py-3 flex items-center justify-between gap-3 text-xs first:pt-0 last:pb-0">
-                    <div className="truncate">
-                      <p className="font-bold text-slate-800 truncate leading-snug">{item.product.name}</p>
-                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        {formatCurrency(item.price)} • Pacote {item.selectedWeight}g
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2.5 shrink-0 align-middle">
-                      <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-150">
-                        <button
-                          onClick={() => handleUpdateQuantity(item.product.id, item.selectedWeight, -1)}
-                          className="p-1 hover:bg-white rounded text-slate-650 transition cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="px-2 font-mono font-bold text-slate-800 text-xs">{item.quantity}</span>
-                        <button
-                          disabled={isPlusDisabled}
-                          onClick={() => handleUpdateQuantity(item.product.id, item.selectedWeight, 1)}
-                          className={`p-1 rounded text-slate-650 transition ${isPlusDisabled ? 'opacity-30 cursor-not-allowed hover:bg-transparent' : 'hover:bg-white cursor-pointer'}`}
-                          title={isPlusDisabled ? "Estoque total atingido" : "Aumentar quantidade"}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-
+                  <div className="flex items-center gap-2.5 shrink-0 align-middle">
+                    <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-150">
                       <button
-                        onClick={() => handleRemoveFromCart(item.product.id, item.selectedWeight)}
-                        className="text-slate-450 hover:text-red-600 transition p-1 cursor-pointer"
-                        title="Deletar do carrinho"
+                        onClick={() => handleUpdateQuantity(item.product.id, item.selectedWeight, -1)}
+                        className="p-1 hover:bg-white rounded text-slate-650 transition"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="px-2 font-mono font-bold text-slate-800 text-xs">{item.quantity}</span>
+                      <button
+                        onClick={() => handleUpdateQuantity(item.product.id, item.selectedWeight, 1)}
+                        className="p-1 hover:bg-white rounded text-slate-650 transition"
+                      >
+                        <Plus className="w-3 h-3" />
                       </button>
                     </div>
+
+                    <button
+                      onClick={() => handleRemoveFromCart(item.product.id, item.selectedWeight)}
+                      className="text-slate-400 hover:text-red-650 transition p-1"
+                      title="Deletar do carrinho"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                );
-              })}
+                </div>
+              ))}
 
               {cart.length === 0 && (
                 <div className="py-12 text-center text-slate-400 text-xs font-semibold">Seu carrinho de compras está vazio.</div>
