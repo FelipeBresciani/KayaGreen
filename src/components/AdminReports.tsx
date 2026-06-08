@@ -15,6 +15,14 @@ interface AdminReportsProps {
   customers: Customer[];
 }
 
+const formatGrams = (grams: number) => {
+  if (!grams) return '0 g';
+  if (grams >= 1000) {
+    return `${(grams / 1000).toFixed(1).replace('.', ',')} kg`;
+  }
+  return `${grams} g`;
+};
+
 export default function AdminReports({ orders, products, customers }: AdminReportsProps) {
   // Preset filters
   const [startDate, setStartDate] = useState<string>('2026-03-01'); // historical seeding start
@@ -24,6 +32,7 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
   
   // Tab configuration
   const [reportTab, setReportTab] = useState<'vendas' | 'produtos' | 'clientes' | 'temporal'>('vendas');
+  const [productSortBy, setProductSortBy] = useState<'revenue' | 'quantity' | 'weight'>('revenue');
 
   const filterState = useMemo(() => ({
     startDate,
@@ -36,6 +45,55 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
   const report = useMemo(() => {
     return generateReportData(orders, products, customers, filterState);
   }, [orders, products, customers, filterState]);
+
+  // Filter, sort and partition product list into two disjoint lists (Top and Bottom performers)
+  // to avoid overlap and visual logical contradictions.
+  const partitionedProducts = useMemo(() => {
+    // report.products.leastSold has all products in the database
+    const allProducts = [...report.products.leastSold];
+    
+    // Sort all products descending by the active criteria
+    allProducts.sort((a, b) => {
+      if (productSortBy === 'revenue') {
+        if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+        if (b.quantity !== a.quantity) return b.quantity - a.quantity;
+        return (b.totalGrams || 0) - (a.totalGrams || 0);
+      } else if (productSortBy === 'weight') {
+        const bW = b.totalGrams || 0;
+        const aW = a.totalGrams || 0;
+        if (bW !== aW) return bW - aW;
+        if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+        return b.quantity - a.quantity;
+      } else {
+        if (b.quantity !== a.quantity) return b.quantity - a.quantity;
+        if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+        return (b.totalGrams || 0) - (a.totalGrams || 0);
+      }
+    });
+
+    // Partition: top performers go in topHalf, bottom performers in bottomHalf
+    const midpoint = Math.ceil(allProducts.length / 2);
+    const topHalfRaw = allProducts.slice(0, midpoint);
+    const bottomHalfRaw = allProducts.slice(midpoint);
+
+    // Keep only actual selling products in the top half
+    const topHalf = topHalfRaw.filter(p => p.quantity > 0 || p.revenue > 0 || (p.totalGrams && p.totalGrams > 0));
+    
+    // Any product filtered out of topHalf (because it had 0 sales) goes to bottomHalf
+    const filteredOutFromTop = topHalfRaw.filter(p => !(p.quantity > 0 || p.revenue > 0 || (p.totalGrams && p.totalGrams > 0)));
+    const bottomHalf = [...filteredOutFromTop, ...bottomHalfRaw];
+
+    // Sort bottomHalf ascending so that the worst sellers (usually 0) are listed first
+    const bottomAscending = [...bottomHalf].reverse();
+
+    return {
+      mostSold: topHalf,
+      leastSold: bottomAscending
+    };
+  }, [report.products.leastSold, productSortBy]);
+
+  const sortedMostSold = partitionedProducts.mostSold;
+  const sortedLeastSold = partitionedProducts.leastSold;
 
   // Clear filters
   const handleResetFilters = () => {
@@ -81,9 +139,10 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
     fileContent += divider;
 
     // Products
-    fileContent += `2. DESEMPENHO DE PRODUTOS (RAKING DE VENDAS)\r\n`;
-    report.products.mostSold.forEach((p, idx) => {
-      fileContent += ` #${idx+1} [${p.name}] - Quantidade: ${p.quantity} unidades | Receita: R$ ${p.revenue.toFixed(2)}\r\n`;
+    fileContent += `2. DESEMPENHO DE PRODUTOS (RANKING DE VENDAS)\r\n`;
+    sortedMostSold.forEach((p, idx) => {
+      const gStr = formatGrams(p.totalGrams || 0);
+      fileContent += ` #${idx+1} [${p.name}] - Quantidade: ${p.quantity} pacotes (${gStr}) | Receita: R$ ${p.revenue.toFixed(2)}\r\n`;
     });
     fileContent += divider;
 
@@ -232,7 +291,7 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
     doc.text('Receita Gerada (R$)', 160, yPos + 4.5);
 
     yPos += 6;
-    report.products.mostSold.forEach((p, idx) => {
+    sortedMostSold.forEach((p, idx) => {
       if (idx % 2 === 0) {
         doc.setFillColor(250, 250, 250);
         doc.rect(12, yPos, 186, 6.5, 'F');
@@ -240,13 +299,14 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(51, 65, 85);
+      const gStr = formatGrams(p.totalGrams || 0);
       doc.text(`${idx + 1}. ${p.name}`, 15, yPos + 4.5);
-      doc.text(`${p.quantity} pacotes`, 110, yPos + 4.5);
+      doc.text(`${p.quantity} pct (${gStr})`, 110, yPos + 4.5);
       doc.text(formatCurrency(p.revenue), 160, yPos + 4.5);
       yPos += 6.5;
     });
 
-    if (report.products.mostSold.length === 0) {
+    if (sortedMostSold.length === 0) {
       doc.setFont('helvetica', 'italic');
       doc.text('Nenhuma venda no período filtrado.', 20, yPos + 5);
       yPos += 8;
@@ -396,38 +456,82 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
 
         </div>
 
-        {/* Quick presets and Reset buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs border-t border-slate-50">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-            <span>Intervalos rápidos:</span>
-            <button
-              onClick={() => handleSelectPeriodPreset('all')}
-              className="hover:text-emerald-700 hover:underline px-1.5"
-            >
-              Histórico Integral
-            </button>
-            <span className="text-slate-300">•</span>
-            <button
-              onClick={() => handleSelectPeriodPreset('30days')}
-              className="hover:text-emerald-700 hover:underline px-1.5"
-            >
-              Últimos 30 Dias
-            </button>
-            <span className="text-slate-300">•</span>
-            <button
-              onClick={() => handleSelectPeriodPreset('june')}
-              className="hover:text-emerald-700 hover:underline px-1.5"
-            >
-              Mês Completo (Junho)
-            </button>
+        {/* Quick presets, Sort and Reset buttons */}
+        <div className="pt-3 border-t border-slate-100 flex flex-col lg:flex-row items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-650 font-semibold">
+            <span className="flex items-center gap-1">⚡ Ordenação do Catalógo:</span>
+            <div className="flex bg-slate-200/50 p-0.5 rounded-xl gap-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setProductSortBy('revenue')}
+                className={`text-[10px] font-bold px-3 py-1.5 rounded-lg font-sans transition-all duration-200 ${
+                  productSortBy === 'revenue'
+                    ? 'bg-white text-emerald-800 shadow-xs'
+                    : 'text-slate-550 hover:text-slate-800'
+                }`}
+              >
+                Faturamento (R$)
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductSortBy('quantity')}
+                className={`text-[10px] font-bold px-3 py-1.5 rounded-lg font-sans transition-all duration-200 ${
+                  productSortBy === 'quantity'
+                    ? 'bg-white text-emerald-800 shadow-xs'
+                    : 'text-slate-550 hover:text-slate-800'
+                }`}
+              >
+                Pacotes Vendidos
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductSortBy('weight')}
+                className={`text-[10px] font-bold px-3 py-1.5 rounded-lg font-sans transition-all duration-200 ${
+                  productSortBy === 'weight'
+                    ? 'bg-white text-emerald-800 shadow-xs'
+                    : 'text-slate-550 hover:text-slate-800'
+                }`}
+              >
+                Peso Vendido (g/kg)
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={handleResetFilters}
-            className="text-[11px] text-slate-500 hover:text-emerald-750 font-bold flex items-center gap-1 mt-1 sm:mt-0"
-          >
-            <RefreshCw className="w-3 h-3" /> Limpar Filtros
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-3.5 w-full lg:w-auto">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+              <span>Intervalos:</span>
+              <button
+                type="button"
+                onClick={() => handleSelectPeriodPreset('all')}
+                className="hover:text-emerald-700 hover:underline px-1"
+              >
+                Integral
+              </button>
+              <span className="text-slate-300">•</span>
+              <button
+                type="button"
+                onClick={() => handleSelectPeriodPreset('30days')}
+                className="hover:text-emerald-700 hover:underline px-1"
+              >
+                30 Dias
+              </button>
+              <span className="text-slate-300">•</span>
+              <button
+                type="button"
+                onClick={() => handleSelectPeriodPreset('june')}
+                className="hover:text-emerald-700 hover:underline px-1"
+              >
+                Junho
+              </button>
+            </div>
+
+            <button
+              onClick={handleResetFilters}
+              className="text-[11px] text-slate-550 hover:text-emerald-750 font-bold flex items-center gap-1 bg-slate-50 border border-slate-150 rounded-xl px-2.5 py-1.5"
+            >
+              <RefreshCw className="w-3 h-3" /> Limpar Filtros
+            </button>
+          </div>
         </div>
 
       </div>
@@ -518,25 +622,46 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
               {/* GRÁFICOS IMPORTANTES PARA O NEGÓCIO */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
                 
-                {/* Chart 1: Participação de Receita por Cultura */}
+                {/* Chart 1: Participação de Receita ou Volume por Cultura */}
                 <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl">
                   <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200/50">
                     <h4 className="text-xs font-bold font-mono text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                       <BarChart3 className="w-4 h-4 text-emerald-600" /> Vendas por Cultura / Produto
                     </h4>
-                    <span className="text-[9px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-extrabold uppercase font-mono">Receita Líquida</span>
+                    <span className="text-[9px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-extrabold uppercase font-mono">
+                      {productSortBy === 'revenue' 
+                        ? 'Por Faturamento' 
+                        : productSortBy === 'weight' 
+                        ? 'Por Peso Vendido' 
+                        : 'Por Pacotes Vendidos'}
+                    </span>
                   </div>
                   <div className="space-y-3.5">
-                    {report.products.mostSold.slice(0, 5).map((p, idx) => {
-                      const totalRev = report.summary.totalValueSold || 1;
-                      const percent = Math.min((p.revenue / totalRev) * 100, 100);
+                    {sortedMostSold.slice(0, 5).map((p, idx) => {
+                      let percent = 0;
+                      let valueLabel = '';
+                      
+                      if (productSortBy === 'revenue') {
+                        const totalRev = report.summary.totalValueSold || 1;
+                        percent = Math.min((p.revenue / totalRev) * 100, 100);
+                        valueLabel = formatCurrency(p.revenue);
+                      } else if (productSortBy === 'weight') {
+                        const totalWeight = report.products.mostSold.reduce((sum, item) => sum + (item.totalGrams || 0), 0) || 1;
+                        percent = Math.min(((p.totalGrams || 0) / totalWeight) * 100, 100);
+                        valueLabel = formatGrams(p.totalGrams || 0);
+                      } else {
+                        const totalUnits = report.summary.totalQtySold || 1;
+                        percent = Math.min(((p.quantity || 0) / totalUnits) * 100, 100);
+                        valueLabel = `${p.quantity || 0} pct`;
+                      }
+
                       const colors = ['bg-emerald-600', 'bg-teal-500', 'bg-indigo-600', 'bg-purple-500', 'bg-amber-500'];
                       return (
                         <div key={idx} className="space-y-1">
                           <div className="flex justify-between items-center text-xs">
                             <span className="font-semibold text-slate-700 truncate max-w-[190px]">{p.name}</span>
                             <span className="font-mono text-slate-500 font-bold">
-                              {formatCurrency(p.revenue)} ({percent.toFixed(0)}%)
+                              {valueLabel} ({percent.toFixed(0)}%)
                             </span>
                           </div>
                           <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
@@ -548,8 +673,8 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
                         </div>
                       );
                     })}
-                    {report.products.mostSold.length === 0 && (
-                      <p className="text-xs text-slate-400 py-10 text-center">Nenhum dado financeiro disponível sob os parâmetros atuais.</p>
+                    {sortedMostSold.length === 0 && (
+                      <p className="text-xs text-slate-400 py-10 text-center">Nenhum dado disponível sob os parâmetros atuais.</p>
                     )}
                   </div>
                 </div>
@@ -607,51 +732,76 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
 
           {/* TAB 2: RELATÓRIO DE PRODUTOS */}
           {reportTab === 'produtos' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
               
-              {/* Products Most Sold */}
-              <div>
-                <h4 className="font-bold text-xs text-emerald-800 flex items-center gap-1.5 pb-2 border-b border-emerald-100 mb-3">
-                  <Award className="w-4 h-4" /> Culturas Mais Vendidas (Maior Demanda)
-                </h4>
-                <div className="space-y-2">
-                  {report.products.mostSold.map((p, idx) => (
-                    <div key={idx} className="p-3 bg-emerald-50/20 border border-emerald-100/40 rounded-xl flex items-center justify-between gap-4 text-xs">
-                      <div>
-                        <p className="font-bold text-slate-800">{p.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">Pacotes vendidos: {p.quantity}</p>
-                      </div>
-                      <span className="font-bold font-mono text-emerald-800">
-                        {formatCurrency(p.revenue)}
-                      </span>
-                    </div>
-                  ))}
-                  {report.products.mostSold.length === 0 && (
-                    <p className="text-slate-400 text-center py-6">Nenhum produto vendido no período.</p>
-                  )}
-                </div>
+              {/* Dynamic Sort Indicator Label */}
+              <div className="bg-emerald-50/25 border border-emerald-100/40 rounded-2xl p-3.5 flex items-center gap-2 text-xs">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-slate-650 font-medium leading-relaxed">
+                  Ranking exibido em ordem de <strong className="text-emerald-800">
+                    {productSortBy === 'revenue' 
+                      ? 'Faturamento (Receita Gerada)' 
+                      : productSortBy === 'weight' 
+                      ? 'Peso Total Vendido (g/kg)' 
+                      : 'Pacotes / Volumes Comercializados'}
+                  </strong>, conforme a ordenação selecionada nos filtros no topo da página.
+                </span>
               </div>
 
-              {/* Products Least Sold */}
-              <div>
-                <h4 className="font-bold text-xs text-amber-800 flex items-center gap-1.5 pb-2 border-b border-amber-100 mb-3">
-                  <AlertCircle className="w-4 h-4" /> Estoque Estagnado ou Menores Vendas
-                </h4>
-                <div className="space-y-2">
-                  {report.products.leastSold.map((p, idx) => (
-                    <div key={idx} className="p-3 bg-amber-50/10 border border-amber-100/30 rounded-xl flex items-center justify-between gap-4 text-xs">
-                      <div>
-                        <p className="font-bold text-slate-800">{p.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">Pacotes vendidos: {p.quantity}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Products Most Sold */}
+                <div>
+                  <h4 className="font-bold text-xs text-emerald-800 flex items-center gap-1.5 pb-2 border-b border-emerald-100 mb-3">
+                    <Award className="w-4 h-4" /> Culturas Mais Vendidas (Maior Demanda)
+                  </h4>
+                  <div className="space-y-2">
+                    {sortedMostSold.map((p, idx) => (
+                      <div key={idx} className="p-3 bg-emerald-50/20 border border-emerald-100/40 rounded-xl flex items-center justify-between gap-4 text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800">{p.name}</p>
+                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] mt-0.5">
+                            <span className="text-slate-400 font-mono">Pacotes: {p.quantity}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-emerald-600 font-semibold font-mono">Total de peso: {formatGrams(p.totalGrams || 0)}</span>
+                          </div>
+                        </div>
+                        <span className="font-bold font-mono text-emerald-800">
+                          {formatCurrency(p.revenue)}
+                        </span>
                       </div>
-                      <span className="font-bold font-mono text-amber-800">
-                        {formatCurrency(p.revenue)}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                    {sortedMostSold.length === 0 && (
+                      <p className="text-slate-400 text-center py-6">Nenhum produto vendido no período.</p>
+                    )}
+                  </div>
                 </div>
-              </div>
 
+                {/* Products Least Sold */}
+                <div>
+                  <h4 className="font-bold text-xs text-amber-800 flex items-center gap-1.5 pb-2 border-b border-amber-100 mb-3">
+                    <AlertCircle className="w-4 h-4" /> Estoque Estagnado ou Menores Vendas
+                  </h4>
+                  <div className="space-y-2">
+                    {sortedLeastSold.map((p, idx) => (
+                      <div key={idx} className="p-3 bg-amber-50/10 border border-amber-100/30 rounded-xl flex items-center justify-between gap-4 text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800">{p.name}</p>
+                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] mt-0.5">
+                            <span className="text-slate-400 font-mono">Pacotes: {p.quantity}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-amber-600 font-semibold font-mono">Total de peso: {formatGrams(p.totalGrams || 0)}</span>
+                          </div>
+                        </div>
+                        <span className="font-bold font-mono text-amber-800">
+                          {formatCurrency(p.revenue)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
             </div>
           )}
 

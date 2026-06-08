@@ -262,7 +262,7 @@ export const generateReportData = (
       o.items.forEach(itm => {
         // If product filter is set, only sum that specific product
         if (!filter.productId || itm.productId === filter.productId) {
-          totalQtySold += itm.quantity;
+          totalQtySold += itm.quantity || 0;
         }
       });
     }
@@ -273,38 +273,45 @@ export const generateReportData = (
       // Sum only the subtotal of that product
       o.items.forEach(itm => {
         if (itm.productId === filter.productId) {
-          totalValueSold += itm.subtotal;
+          const itemSubtotal = typeof itm.subtotal === 'number' ? itm.subtotal : (itm.pricePerWeight * itm.quantity) || 0;
+          totalValueSold += itemSubtotal;
         }
       });
     } else {
-      totalValueSold += o.total;
+      totalValueSold += o.total || 0;
     }
   });
 
   const ticketMedio = completedOrders.length > 0 ? (totalValueSold / completedOrders.length) : 0;
 
   // 2. Relatório de Produtos
-  const productSalesMap: Record<string, { name: string; quantity: number; revenue: number }> = {};
+  const productSalesMap: Record<string, { name: string; quantity: number; revenue: number; totalGrams: number }> = {};
   products.forEach(p => {
-    productSalesMap[p.id] = { name: p.name, quantity: 0, revenue: 0 };
+    productSalesMap[p.id] = { name: p.name, quantity: 0, revenue: 0, totalGrams: 0 };
   });
 
   filteredOrders.forEach(o => {
     if (o.status !== 'cancelado') {
       o.items.forEach(itm => {
         if (!productSalesMap[itm.productId]) {
-          productSalesMap[itm.productId] = { name: itm.productName, quantity: 0, revenue: 0 };
+          productSalesMap[itm.productId] = { name: itm.productName, quantity: 0, revenue: 0, totalGrams: 0 };
         }
-        productSalesMap[itm.productId].quantity += itm.quantity;
+        productSalesMap[itm.productId].quantity += itm.quantity || 0;
+        const itmWeight = Number(itm.weight || 20);
+        const itmUnit = itm.unit || 'g';
+        const weightInGrams = itmUnit === 'kg' ? itmWeight * 1000 : itmWeight;
+        productSalesMap[itm.productId].totalGrams += (weightInGrams || 0) * (itm.quantity || 0);
+
         if (o.status === 'concluido') {
-          productSalesMap[itm.productId].revenue += itm.subtotal;
+          const itemSubtotal = typeof itm.subtotal === 'number' ? itm.subtotal : (itm.pricePerWeight * itm.quantity) || 0;
+          productSalesMap[itm.productId].revenue += itemSubtotal;
         }
       });
     }
   });
 
   const rankedProducts = Object.values(productSalesMap).sort((a, b) => b.quantity - a.quantity);
-  const mostSoldProducts = rankedProducts.filter(p => p.quantity > 0);
+  const mostSoldProducts = rankedProducts.filter(p => p.quantity > 0 || p.totalGrams > 0);
   const leastSoldProducts = [...rankedProducts].reverse();
 
   // 3. Relatório de Clientes
