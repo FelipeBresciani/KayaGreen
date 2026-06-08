@@ -69,6 +69,18 @@
           "type": "number",
           "description": "Unit base pricing for microgreen sales"
         },
+        "price20g": {
+          "type": "number",
+          "description": "Pricing for a 20g portion"
+        },
+        "price40g": {
+          "type": "number",
+          "description": "Pricing for a 40g portion"
+        },
+        "price60g": {
+          "type": "number",
+          "description": "Pricing for a 60g portion"
+        },
         "image": {
           "type": "string",
           "description": "Image secure web link or symbol preset reference"

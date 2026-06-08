@@ -16,9 +16,14 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Checks explicit server-verified mapping in /admins path to avoid user claim manipulation
+    // Checks explicit server-verified mapping in /admins path or bypass by founder email to avoid user claim manipulation
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'felipe.bresciani1@gmail.com' ||
+        request.auth.uid == 'VFQg1IDlileQQ7DFLhOgCPpKCjf2' ||
+        request.auth.uid == 'VFQg1lDliIeQQ7DFLhOgCPpKCjf2'
+      );
     }
 
     // Hardening document ID constraints to prevent character injection poisoning
@@ -49,15 +54,17 @@ service cloud.firestore {
 
     function isValidProduct(data) {
       return data.keys().hasAll(['id', 'name', 'description', 'availableWeight', 'unit', 'pricePerWeight', 'image', 'status'])
-        && data.keys().size() == 8
         && data.id is string && data.id.size() <= 128
         && data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && data.description is string && data.description.size() <= 4000
-        && data.availableWeight is number && data.availableWeight >= 0
+        && (data.availableWeight is int || data.availableWeight is float) && data.availableWeight >= 0
         && data.unit in ['g', 'kg']
-        && data.pricePerWeight is number && data.pricePerWeight >= 0
+        && (data.pricePerWeight is int || data.pricePerWeight is float) && data.pricePerWeight >= 0
         && data.image is string && data.image.size() <= 2048
-        && data.status in ['ativo', 'inativo'];
+        && data.status in ['ativo', 'inativo']
+        && (!data.keys().hasAny(['price20g']) || data.price20g is int || data.price20g is float)
+        && (!data.keys().hasAny(['price40g']) || data.price40g is int || data.price40g is float)
+        && (!data.keys().hasAny(['price60g']) || data.price60g is int || data.price60g is float);
     }
 
     function isValidOrder(data) {
@@ -68,7 +75,7 @@ service cloud.firestore {
         && data.customerEmail is string && data.customerEmail.size() <= 256
         && data.customerPhone is string && data.customerPhone.size() <= 40
         && data.customerAddress is string && data.customerAddress.size() <= 1000
-        && data.total is number && data.total >= 0
+        && (data.total is int || data.total is float) && data.total >= 0
         && data.status in ['aguardando_aprovacao', 'planejado', 'em_producao', 'em_entrega', 'concluido', 'cancelado']
         && data.createdAt is string && data.createdAt.size() <= 50
         && data.updatedAt is string && data.updatedAt.size() <= 50;

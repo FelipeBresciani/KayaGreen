@@ -114,8 +114,16 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
   };
 
   const handleToggleStatus = (p: Product) => {
+    const baseWeight = getProductBaseWeight(p.id);
+    const calculated20g = p.price20g !== undefined ? p.price20g : Number(((p.pricePerWeight / baseWeight) * 20).toFixed(2));
+    const calculated40g = p.price40g !== undefined ? p.price40g : Number(((p.pricePerWeight / baseWeight) * 40).toFixed(2));
+    const calculated60g = p.price60g !== undefined ? p.price60g : Number(((p.pricePerWeight / baseWeight) * 60).toFixed(2));
+
     onUpdateProduct({
       ...p,
+      price20g: calculated20g,
+      price40g: calculated40g,
+      price60g: calculated60g,
       status: p.status === 'ativo' ? 'inativo' : 'ativo',
     });
   };
