@@ -5,12 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product, Customer, Order, Notification, OrderStatus } from './types';
-import {
-  INITIAL_PRODUCTS,
-  INITIAL_CUSTOMERS,
-  INITIAL_ORDERS,
-  INITIAL_NOTIFICATIONS
-} from './data/initialData';
+
 
 // Firebase core configuration
 import { 
@@ -65,49 +60,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
-// Seed default database models if products catalog collection is empty
-const seedDatabaseIfEmpty = async (dbInstance: any) => {
-  try {
-    const productsRef = collection(dbInstance, 'products');
-    const productsSnap = await getDocs(productsRef);
-    if (productsSnap.empty) {
-      console.log("Banco de dados do Firestore vazio. Iniciando semeadura de dados...");
-      
-      // 1. Seed Products
-      for (const p of INITIAL_PRODUCTS) {
-        await setDoc(doc(dbInstance, 'products', p.id), p);
-      }
-      
-      // 2. Seed Customers/Users
-      for (const c of INITIAL_CUSTOMERS) {
-        await setDoc(doc(dbInstance, 'users', c.id), {
-          uid: c.id,
-          name: c.name,
-          email: c.email,
-          phone: c.phone,
-          address: c.address,
-          role: 'cliente',
-          createdAt: c.createdAt
-        });
-      }
-      
-      // 3. Seed Orders
-      for (const o of INITIAL_ORDERS) {
-        await setDoc(doc(dbInstance, 'orders', o.id), o);
-      }
-      
-      // 4. Seed Notifications
-      for (const n of INITIAL_NOTIFICATIONS) {
-        await setDoc(doc(dbInstance, 'notifications', n.id), n);
-      }
-      console.log("Banco de dados do Firestore semeado com sucesso!");
-    } else {
-      console.log("O Firestore já possui dados de produtos. Semeadura ignorada.");
-    }
-  } catch (error) {
-    console.error("Erro ao verificar ou semear base de dados:", error);
-  }
-};
+
 
 export default function App() {
   const useFirebase = isFirebaseConfigured();
@@ -335,10 +288,8 @@ export default function App() {
                 createdAt: new Date().toISOString()
               }, { merge: true });
 
-              // Run the one-time seeding of mock data if the database is empty
-              await seedDatabaseIfEmpty(db);
             } catch (e) {
-              console.error("Erro bootstrapping admin or seeding:", e);
+              console.error("Erro bootstrapping admin:", e);
             }
           } else {
             const isAdminCheck = await getDoc(doc(db, 'admins', user.uid));
