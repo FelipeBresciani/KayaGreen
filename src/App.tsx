@@ -526,23 +526,32 @@ export default function App() {
     });
   };
 
-  const handleUpdateProduct = async (updatedProd: Product) => {
-    if (useFirebase && db) {
-      try {
-        await setDoc(doc(db, 'products', updatedProd.id), updatedProd);
-      } catch (e) {
-        handleFirestoreError(e, OperationType.UPDATE, `products/${updatedProd.id}`);
-      }
-    } else {
-      setProducts(prev => prev.map(p => p.id === updatedProd.id ? updatedProd : p));
+const handleUpdateProduct = async (updatedProd: Product) => {
+  if (useFirebase && db) {
+    try {
+      await setDoc(doc(db, 'products', updatedProd.id), updatedProd);
+      setToast({
+        id: Date.now(),
+        title: 'Produto Atualizado ✅',
+        message: `Os parâmetros de ${updatedProd.name} foram alterados.`
+      });
+    } catch (e: any) {
+      console.error('Erro ao salvar produto:', e);
+      setToast({
+        id: Date.now(),
+        title: 'Erro ao Salvar ❌',
+        message: `Falha: ${e?.message || 'Erro desconhecido. Veja o console.'}`
+      });
     }
-
+  } else {
+    setProducts(prev => prev.map(p => p.id === updatedProd.id ? updatedProd : p));
     setToast({
       id: Date.now(),
       title: 'Produto Atualizado',
       message: `Os parâmetros de ${updatedProd.name} foram alterados.`
     });
-  };
+  }
+};
 
   const handleDeleteProduct = async (id: string) => {
     const item = products.find(p => p.id === id);
