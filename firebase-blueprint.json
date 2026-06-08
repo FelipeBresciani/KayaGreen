@@ -62,8 +62,8 @@
         },
         "unit": {
           "type": "string",
-          "enum": ["g", "kg"],
-          "description": "Unit of configuration for weights"
+          "enum": ["g", "kg", "un"],
+          "description": "Unit of configuration for weights or count"
         },
         "pricePerWeight": {
           "type": "number",
@@ -89,6 +89,11 @@
           "type": "string",
           "enum": ["ativo", "inativo"],
           "description": "Greenhouse market visibility status of the product"
+        },
+        "saleType": {
+          "type": "string",
+          "enum": ["peso", "unidade"],
+          "description": "Indicates whether the product is sold by weight or by unit"
         }
       },
       "required": ["id", "name", "description", "availableWeight", "unit", "pricePerWeight", "image", "status"]

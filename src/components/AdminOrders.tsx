@@ -296,7 +296,7 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                             type="button"
                             onClick={() => {
                               const cleanPhone = selectedOrder.customerPhone.replace(/\D/g, '');
-                              const itemsList = selectedOrder.items.map(itm => `• ${itm.quantity}x ${itm.productName} (${itm.weight}${itm.unit || 'g'})`).join('\n');
+                              const itemsList = selectedOrder.items.map(itm => `• ${itm.quantity}x ${itm.productName} (${itm.unit === 'un' ? 'Unitário' : `${itm.weight}${itm.unit || 'g'}`})`).join('\n');
                               const msg = `Olá, ${selectedOrder.customerName}! 🌱 Seu pedido de Microverdes Kayagreen acabou de sair para entrega! 🚚\n\n📦 Itens Enviados:\n${itemsList}\n\n💰 Valor Total: R$ ${selectedOrder.total.toFixed(2)}\n💳 Forma de pagamento: ${selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Cartão de Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Cartão de Débito 💳' : 'A combinar'} na entrega.\n\nFique atento para receber seus microverdes fresquinhos em instantes! Muito obrigado. 💚`;
                               const url = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(msg)}`;
                               window.open(url, '_blank');
@@ -309,7 +309,7 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                           <button
                             type="button"
                             onClick={() => {
-                              const itemsList = selectedOrder.items.map(itm => `• ${itm.quantity}x ${itm.productName} (${itm.weight}${itm.unit || 'g'})`).join('\n');
+                              const itemsList = selectedOrder.items.map(itm => `• ${itm.quantity}x ${itm.productName} (${itm.unit === 'un' ? 'Unitário' : `${itm.weight}${itm.unit || 'g'}`})`).join('\n');
                               const subject = `Cultivo Kayagreen: Seus microverdes já saíram para entrega! 🚚`;
                               const body = `Olá, ${selectedOrder.customerName}!\n\nSeu pedido de deliciosos microverdes Kayagreen no valor de R$ ${selectedOrder.total.toFixed(2)} já saiu para entrega! 🚚\n\n📦 Itens enviados:\n${itemsList}\n\nForma de pagamento escolhida: ${selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Cartão de Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Cartão de Débito 💳' : 'A combinar'} na entrega.\n\nEm instantes nosso entregador chegará ao seu endereço cadastrado:\n${selectedOrder.customerAddress}\n\nMuito obrigado pelo seu apoio ao cultivo orgânico e local!\nEquipe Kayagreen`;
                               window.open(`mailto:${selectedOrder.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
@@ -352,6 +352,14 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                         </span>
                       </div>
                     )}
+                    {selectedOrder.deliveryMethod && (
+                      <div className="pt-2 border-t border-slate-100/60 mt-1.5 text-xs flex items-center justify-between">
+                        <span className="font-semibold text-slate-400 text-[10px] uppercase">Forma de Envio:</span>
+                        <span className="bg-slate-50 text-slate-700 border border-slate-205 font-bold px-2 py-0.5 rounded text-[10px] uppercase flex items-center gap-1">
+                          {selectedOrder.deliveryMethod === 'entrega' ? '🚚 Entrega em Casa' : '🏠 Retirada na Estufa'}
+                        </span>
+                      </div>
+                    )}
                     {selectedOrder.notes && (
                       <div className="pt-2 border-t border-slate-100/60 mt-1.5 text-[11px]">
                         <span className="font-semibold text-slate-400 text-[10px] uppercase block mb-1">Observações:</span>
@@ -374,7 +382,11 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                         <div className="truncate">
                           <p className="font-bold text-slate-800 truncate">{itm.productName}</p>
                           <p className="text-[10px] text-slate-500 font-mono">
-                            {itm.quantity} pacotinho(s) x {itm.weight}{itm.unit} ({formatCurrency(itm.pricePerWeight)}/unid)
+                            {itm.unit === 'un' ? (
+                              `${itm.quantity} unidade(s) (${formatCurrency(itm.pricePerWeight)}/unid)`
+                            ) : (
+                              `${itm.quantity} pacotinho(s) x ${itm.weight}${itm.unit} (${formatCurrency(itm.pricePerWeight)}/unid)`
+                            )}
                           </p>
                         </div>
                         <span className="font-bold text-slate-800 font-mono align-middle pr-1">
@@ -385,19 +397,35 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                   </div>
 
                   {/* Pricing summaries block */}
-                  <div className="flex items-center justify-between bg-emerald-50/40 p-3.5 rounded-xl border border-emerald-100/70">
-                    <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Valor total faturado</p>
-                      {['planejado', 'em_producao', 'em_entrega'].includes(selectedOrder.status) && (
-                        <span className="text-[9px] bg-amber-150 text-amber-800 font-bold px-1 rounded">PROVISÓRIO</span>
-                      )}
-                      {selectedOrder.status === 'concluido' && (
-                        <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1 rounded flex items-center gap-0.5 w-fit">✓ LIQUIDADO</span>
-                      )}
+                  <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-2 text-xs">
+                    <div className="flex justify-between text-slate-500 items-center">
+                      <span>Subtotal de Itens:</span>
+                      <span className="font-mono font-bold text-slate-700">
+                        {formatCurrency(selectedOrder.items.reduce((sum, item) => sum + item.subtotal, 0))}
+                      </span>
                     </div>
-                    <span className="text-lg font-black text-emerald-800 font-mono leading-none">
-                      {formatCurrency(selectedOrder.total)}
-                    </span>
+                    {selectedOrder.deliveryMethod === 'entrega' && (
+                      <div className="flex justify-between text-slate-500 items-center">
+                        <span>Taxa de Entrega:</span>
+                        <span className="font-mono font-bold text-slate-700">
+                          {selectedOrder.deliveryFee === 0 || !selectedOrder.deliveryFee ? 'Grátis' : formatCurrency(selectedOrder.deliveryFee)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100/60 mt-2">
+                      <div>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Valor total faturado</p>
+                        {['planejado', 'em_producao', 'em_entrega'].includes(selectedOrder.status) && (
+                          <span className="text-[9px] bg-amber-150 text-amber-800 font-bold px-1 rounded animate-pulse">PROVISÓRIO</span>
+                        )}
+                        {selectedOrder.status === 'concluido' && (
+                          <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1 rounded flex items-center gap-0.5 w-fit">✓ LIQUIDADO</span>
+                        )}
+                      </div>
+                      <span className="text-base font-black text-emerald-800 font-mono leading-none">
+                        {formatCurrency(selectedOrder.total)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

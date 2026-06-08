@@ -4,9 +4,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Product, Customer } from '../types';
+import { Product, Customer, ShippingConfig } from '../types';
 import { formatCurrency } from '../utils/helpers';
-import { ShoppingCart, Plus, Minus, Trash2, Home, Phone, ShoppingBag, Eye, Scale, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Home, Phone, ShoppingBag, Eye, Scale, Sparkles, CheckCircle2, Truck } from 'lucide-react';
 
 interface ClientCatalogueProps {
   products: Product[];
@@ -17,32 +17,63 @@ interface ClientCatalogueProps {
       productName: string;
       quantity: number;
       weight: number;
-      unit: 'g' | 'kg';
+      unit: 'g' | 'kg' | 'un';
       pricePerWeight: number;
       subtotal: number;
     }[],
     notes?: string,
-    paymentMethod?: string
+    paymentMethod?: string,
+    deliveryMethod?: 'entrega' | 'retirada',
+    deliveryFee?: number
   ) => void;
   onCartChange?: (isOpen: boolean) => void;
+  shippingConfig?: ShippingConfig;
 }
 
 interface CartItem {
   product: Product;
   quantity: number;
-  selectedWeight: 20 | 40 | 60;
+  selectedWeight: number;
   price: number;
 }
 
-export default function ClientCatalogue({ products, currentCustomer, onPlaceOrder, onCartChange }: ClientCatalogueProps) {
+export default function ClientCatalogue({ products, currentCustomer, onPlaceOrder, onCartChange, shippingConfig }: ClientCatalogueProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCartLocal, setShowCartLocal] = useState(true);
   const [orderNotes, setOrderNotes] = useState('');
   const [orderSuccessId, setOrderSuccessId] = useState<string | null>(null);
-  const [selectedWeights, setSelectedWeights] = useState<Record<string, 20 | 40 | 60>>({});
+  const [selectedWeights, setSelectedWeights] = useState<Record<string, number>>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<'pix' | 'credito' | 'debito'>('pix');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Shipping choice state
+  const [deliveryMethod, setDeliveryMethod] = useState<'entrega' | 'retirada'>('entrega');
+
+  const getDeliveryFee = (): number => {
+    if (deliveryMethod === 'retirada') return 0;
+    
+    // Auto-free-shipping calculation
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const threshold = shippingConfig?.freeShippingThreshold ?? 75;
+    if (subtotal >= threshold) return 0;
+
+    const addressStr = currentCustomer.address || '';
+    
+    // Match customized neighborhood rates
+    const bairrosMap = shippingConfig?.greenhouseBairros ?? {};
+    const addressUpper = addressStr.toUpperCase();
+    
+    for (const [bairro, fee] of Object.entries(bairrosMap)) {
+      if (addressUpper.includes(bairro.toUpperCase())) {
+        return fee;
+      }
+    }
+    
+    return shippingConfig?.fixedFee ?? 10;
+  };
+
+  const deliveryFee = getDeliveryFee();
 
   // Auto-clear error message after 7 seconds
   useEffect(() => {
@@ -97,14 +128,21 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
   };
 
   // Cart operations
-  const handleAddToCart = (product: Product, weight: 20 | 40 | 60) => {
-    const price = getProductPriceForWeight(product, weight);
-    const currentWeightInCart = cart
+  const handleAddToCart = (product: Product, weight: number) => {
+    const isUnidade = product.saleType === 'unidade';
+    const finalWeight = isUnidade ? 1 : weight;
+    const price = isUnidade ? product.pricePerWeight : getProductPriceForWeight(product, finalWeight);
+
+    const currentQtyInCart = cart
       .filter(item => item.product.id === product.id)
       .reduce((sum, item) => sum + (item.quantity * item.selectedWeight), 0);
     
-    if (currentWeightInCart + weight > product.availableWeight) {
-      setErrorMessage(`Estoque insuficiente de ${product.name}! Você já adicionou ${currentWeightInCart}g ao carrinho e o estoque máximo restante é de ${product.availableWeight}g.`);
+    if (currentQtyInCart + finalWeight > product.availableWeight) {
+      if (isUnidade) {
+        setErrorMessage(`Estoque insuficiente de ${product.name}! Você já adicionou ${currentQtyInCart} un ao carrinho e o estoque máximo restante é de ${product.availableWeight} un.`);
+      } else {
+        setErrorMessage(`Estoque insuficiente de ${product.name}! Você já adicionou ${currentQtyInCart}g ao carrinho e o estoque máximo restante é de ${product.availableWeight}g.`);
+      }
       setOrderSuccessId(null);
       return;
     }
@@ -112,33 +150,39 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
     setErrorMessage(null);
     setCart(prev => {
       const existing = prev.find(
-        item => item.product.id === product.id && item.selectedWeight === weight
+        item => item.product.id === product.id && item.selectedWeight === finalWeight
       );
       if (existing) {
         return prev.map(item =>
-          item.product.id === product.id && item.selectedWeight === weight
+          item.product.id === product.id && item.selectedWeight === finalWeight
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { product, quantity: 1, selectedWeight: weight, price }];
+      return [...prev, { product, quantity: 1, selectedWeight: finalWeight, price }];
     });
     setShowCart(true);
     setOrderSuccessId(null);
   };
 
-  const handleUpdateQuantity = (productId: string, weight: 20 | 40 | 60, delta: number) => {
+  const handleUpdateQuantity = (productId: string, weight: number, delta: number) => {
     setCart(prev => {
       const itemToUpdate = prev.find(item => item.product.id === productId && item.selectedWeight === weight);
       if (!itemToUpdate) return prev;
 
+      const isUnidade = itemToUpdate.product.saleType === 'unidade';
+
       if (delta > 0) {
-        const currentWeightInCart = prev
+        const currentQtyInCart = prev
           .filter(item => item.product.id === productId)
           .reduce((sum, item) => sum + (item.quantity * item.selectedWeight), 0);
         
-        if (currentWeightInCart + weight > itemToUpdate.product.availableWeight) {
-          setErrorMessage(`Estoque insuficiente! O estoque total para ${itemToUpdate.product.name} é de ${itemToUpdate.product.availableWeight}g.`);
+        if (currentQtyInCart + weight > itemToUpdate.product.availableWeight) {
+          if (isUnidade) {
+            setErrorMessage(`Estoque insuficiente! O estoque total para ${itemToUpdate.product.name} é de ${itemToUpdate.product.availableWeight} un.`);
+          } else {
+            setErrorMessage(`Estoque insuficiente! O estoque total para ${itemToUpdate.product.name} é de ${itemToUpdate.product.availableWeight}g.`);
+          }
           return prev;
         }
       }
@@ -154,7 +198,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
     });
   };
 
-  const handleRemoveFromCart = (productId: string, weight: 20 | 40 | 60) => {
+  const handleRemoveFromCart = (productId: string, weight: number) => {
     setCart(prev => prev.filter(item => !(item.product.id === productId && item.selectedWeight === weight)));
   };
 
@@ -165,10 +209,23 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
   const totalWeightStr = () => {
     let g = 0;
+    let units = 0;
     cart.forEach(item => {
-      g += item.quantity * item.selectedWeight;
+      if (item.product.saleType === 'unidade') {
+        units += item.quantity;
+      } else {
+        g += item.quantity * item.selectedWeight;
+      }
     });
-    return g >= 1000 ? `${(g / 1000).toFixed(1)} kg` : `${g}g`;
+
+    const parts = [];
+    if (g > 0) {
+      parts.push(g >= 1000 ? `${(g / 1000).toFixed(1)} kg` : `${g}g`);
+    }
+    if (units > 0) {
+      parts.push(`${units} un`);
+    }
+    return parts.length > 0 ? parts.join(' + ') : '0g';
   };
 
   const handleCheckoutSubmit = (e: React.FormEvent) => {
@@ -224,7 +281,7 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
       };
     });
 
-    onPlaceOrder(orderItems, orderNotes, selectedPayment);
+    onPlaceOrder(orderItems, orderNotes, selectedPayment, deliveryMethod, deliveryFee);
 
     // Reset shopping cart
     setCart([]);
@@ -332,22 +389,23 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
         {/* Left column: Products catalog list - Stable layout structure */}
         <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-5 transition-all duration-350">
           {activeProducts.map(p => {
+            const isUnidade = p.saleType === 'unidade';
             const currentWeightInCart = cart
               .filter(item => item.product.id === p.id)
               .reduce((sum, item) => sum + (item.quantity * item.selectedWeight), 0);
             
             const remainingWeight = p.availableWeight - currentWeightInCart;
-            const isOutOfStock = p.availableWeight < 20;
+            const isOutOfStock = isUnidade ? p.availableWeight < 1 : p.availableWeight < 20;
 
-            let activeWeight = selectedWeights[p.id] || 20;
-            if (activeWeight > remainingWeight && remainingWeight >= 20) {
+            let activeWeight = isUnidade ? 1 : (selectedWeights[p.id] || 20);
+            if (!isUnidade && activeWeight > remainingWeight && remainingWeight >= 20) {
               if (remainingWeight >= 60) activeWeight = 60;
               else if (remainingWeight >= 40) activeWeight = 40;
               else if (remainingWeight >= 20) activeWeight = 20;
             }
 
-            const price = getProductPriceForWeight(p, activeWeight);
-            const isOutOfStockForCart = remainingWeight < 20;
+            const price = isUnidade ? p.pricePerWeight : getProductPriceForWeight(p, activeWeight);
+            const isOutOfStockForCart = isUnidade ? remainingWeight < 1 : remainingWeight < 20;
 
             return (
               <div
@@ -357,25 +415,25 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                 {/* Visual Accent/Status badging */}
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-full select-none">
-                    🌱 Microverdes
+                    🌱 {isUnidade ? 'Unidade' : 'Microverdes'}
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {currentWeightInCart > 0 && (
                       <span className="bg-emerald-50 text-emerald-700 font-bold text-[9px] px-2 py-0.5 rounded-full border border-emerald-100/40 transition">
-                        No carrinho: {currentWeightInCart}g
+                        No carrinho: {currentWeightInCart}{isUnidade ? ' un' : 'g'}
                       </span>
                     )}
                     {isOutOfStock ? (
                       <span className="bg-rose-50 text-rose-600 font-bold text-[9px] px-2 py-0.5 rounded-full border border-rose-100 uppercase tracking-wider font-mono">
                         Esgotado
                       </span>
-                    ) : p.availableWeight <= 150 ? (
+                    ) : p.availableWeight <= (isUnidade ? 5 : 150) ? (
                       <span className="bg-amber-50 text-amber-700 font-bold text-[9px] px-2 py-0.5 rounded-full border border-amber-200 uppercase tracking-wider font-mono">
-                        Restam {p.availableWeight}g
+                        Restam {p.availableWeight}{isUnidade ? ' un' : 'g'}
                       </span>
                     ) : (
                       <span className="bg-slate-50 text-slate-500 font-bold text-[9px] px-2 py-0.5 rounded-full border border-slate-150 uppercase tracking-wider font-mono">
-                        Estoque: {p.availableWeight}g
+                        Estoque: {p.availableWeight}{isUnidade ? ' un' : 'g'}
                       </span>
                     )}
                   </div>
@@ -394,27 +452,38 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
                   <div className="flex items-end justify-between border-t border-slate-100 pt-4 gap-2">
                     {/* Compact Weight Select dropdown */}
-                    <div className="w-[88px] shrink-0">
-                      <span className="text-[9px] text-slate-400 block font-bold uppercase font-mono tracking-wider mb-1">
-                        Tamanho
-                      </span>
-                      <div className="relative">
-                        <select
-                          value={activeWeight}
-                          onChange={(e) => setSelectedWeights(prev => ({ ...prev, [p.id]: Number(e.target.value) as 20 | 40 | 60 }))}
-                          className="w-full bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl pl-2.5 pr-6 py-2 appearance-none focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer font-mono transition"
-                        >
-                          <option value={20} disabled={remainingWeight < 20}>20g</option>
-                          <option value={40} disabled={remainingWeight < 40}>40g</option>
-                          <option value={60} disabled={remainingWeight < 60}>60g</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-500">
-                          <svg className="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                          </svg>
+                    {isUnidade ? (
+                      <div className="w-[88px] shrink-0 font-sans">
+                        <span className="text-[9px] text-slate-400 block font-bold uppercase font-mono tracking-wider mb-1">
+                          Venda
+                        </span>
+                        <div className="bg-blue-50 text-blue-800 text-[10px] font-black tracking-wide rounded-xl py-2 px-1 text-center border border-blue-105 select-none leading-normal">
+                          Por Unidade
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="w-[88px] shrink-0">
+                        <span className="text-[9px] text-slate-400 block font-bold uppercase font-mono tracking-wider mb-1">
+                          Tamanho
+                        </span>
+                        <div className="relative">
+                          <select
+                            value={activeWeight}
+                            onChange={(e) => setSelectedWeights(prev => ({ ...prev, [p.id]: Number(e.target.value) }))}
+                            className="w-full bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl pl-2.5 pr-6 py-2 appearance-none focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer font-mono transition"
+                          >
+                            <option value={20} disabled={remainingWeight < 20}>20g</option>
+                            <option value={40} disabled={remainingWeight < 40}>40g</option>
+                            <option value={60} disabled={remainingWeight < 60}>60g</option>
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-500">
+                            <svg className="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Subtotal representation based on selection */}
                     <div className="flex-1 text-center pb-0.5">
@@ -524,14 +593,75 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                   </div>
                 </div>
 
+                {/* Method selection (Entrega vs Retirada) */}
+                <div className="space-y-2">
+                  <label className="block font-bold text-slate-700">Como deseja receber?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod('entrega')}
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold text-center flex items-center justify-center gap-1.5 transition cursor-pointer select-none outline-none ${
+                        deliveryMethod === 'entrega'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-350'
+                      }`}
+                    >
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>Entrega em Casa</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod('retirada')}
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold text-center flex items-center justify-center gap-1.5 transition cursor-pointer select-none outline-none ${
+                        deliveryMethod === 'retirada'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-350'
+                      }`}
+                    >
+                      <Home className="w-3.5 h-3.5" />
+                      <span>Retirar na Estufa</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Shipping cost indicator box */}
+                <div className="bg-white rounded-xl border border-slate-200/70 p-3 space-y-2">
+                  <div className="flex justify-between items-center text-[11px] text-slate-600">
+                    <span>Produtos Subtotal:</span>
+                    <span className="font-mono font-bold text-slate-800">{formatCurrency(cartSubtotal)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-600">Taxa de Frete / Envio:</span>
+                    {deliveryMethod === 'retirada' ? (
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]">Grátis (Retirada)</span>
+                    ) : deliveryFee === 0 ? (
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-0.5 animate-pulse">🚚 Frete Grátis</span>
+                    ) : (
+                      <span className="font-mono font-bold text-slate-800">{formatCurrency(deliveryFee)}</span>
+                    )}
+                  </div>
+                  
+                  {deliveryMethod === 'entrega' && deliveryFee > 0 && shippingConfig && (
+                    <div className="text-[10px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 flex justify-between">
+                      <span>Faltam <strong className="text-emerald-750 font-mono">{(formatCurrency(shippingConfig.freeShippingThreshold - cartSubtotal))}</strong> para Frete Grátis!</span>
+                    </div>
+                  )}
+
+                  <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs text-slate-800 font-extrabold">
+                    <span>Total Estimado:</span>
+                    <span className="font-mono text-emerald-800 text-sm font-black">{formatCurrency(cartSubtotal + deliveryFee)}</span>
+                  </div>
+                </div>
+
                 {/* Simulated delivery warning */}
                 <div className="space-y-2">
-                  <label className="block font-bold text-slate-700">Observações de Endereço ou Entrega</label>
+                  <label className="block font-bold text-slate-700">Observações do Pedido</label>
                   <textarea
                     rows={2}
                     value={orderNotes}
                     onChange={e => setOrderNotes(e.target.value)}
-                    placeholder="Adicione observações para o motoboy ou solicitações especiais de corte..."
+                    placeholder="Observações de acesso, ponto de referência ou preferências..."
                     className="w-full border border-slate-205 rounded-xl px-2.5 py-2 text-slate-800 resize-none focus:outline-none focus:border-emerald-500 bg-white"
                   />
                 </div>
@@ -603,9 +733,25 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
                   </div>
                 ))}
               </div>
+              <div className="border-t border-slate-250 pt-2 space-y-1.5 text-[11px] font-sans">
+                <div className="flex justify-between text-slate-500 font-medium">
+                  <span>Subtotal de Itens</span>
+                  <span className="font-mono text-slate-750">{formatCurrency(cartSubtotal)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Forma de Recebimento</span>
+                  <span className="font-bold text-slate-700">{deliveryMethod === 'entrega' ? '🚚 Entrega em Casa' : '🏠 Retirar na Estufa'}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Taxa de Envio</span>
+                  <span className="font-mono font-bold text-slate-800">
+                    {deliveryMethod === 'retirada' ? 'R$ 0,00' : deliveryFee === 0 ? 'Grátis (Cortesia)' : formatCurrency(deliveryFee)}
+                  </span>
+                </div>
+              </div>
               <div className="border-t border-slate-200/60 pt-2 flex justify-between font-bold text-sm text-slate-800">
-                <span>Total a Pagar</span>
-                <span className="font-mono text-emerald-700">{formatCurrency(cartSubtotal)}</span>
+                <span>Total Geral a Pagar</span>
+                <span className="font-mono text-emerald-700">{formatCurrency(cartSubtotal + deliveryFee)}</span>
               </div>
             </div>
 

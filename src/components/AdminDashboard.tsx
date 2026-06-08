@@ -4,20 +4,71 @@
  */
 
 import React, { useState } from 'react';
-import { Customer, Order, Product } from '../types';
+import { Customer, Order, Product, ShippingConfig } from '../types';
 import { calculateDashboardStats, formatCurrency, getStatusLabel, getStatusBadgeStyles } from '../utils/helpers';
-import { TrendingUp, BarChart3, ShoppingBag, DollarSign, Award, Users, AlertCircle, ArrowUpRight, ChevronRight, Calendar } from 'lucide-react';
+import { TrendingUp, BarChart3, ShoppingBag, DollarSign, Award, Users, AlertCircle, ArrowUpRight, ChevronRight, Calendar, Truck, Cog, Plus, Trash2, Check } from 'lucide-react';
 
 interface AdminDashboardProps {
   orders: Order[];
   customers: Customer[];
   products: Product[];
   onNavigateTo: (tab: string) => void;
+  shippingConfig: ShippingConfig;
+  onUpdateShippingConfig: (config: ShippingConfig) => void;
 }
 
-export default function AdminDashboard({ orders, customers, products, onNavigateTo }: AdminDashboardProps) {
+export default function AdminDashboard({ orders, customers, products, onNavigateTo, shippingConfig, onUpdateShippingConfig }: AdminDashboardProps) {
   const stats = calculateDashboardStats(orders, customers, products);
   const [activeChartTab, setActiveChartTab] = useState<'daily' | 'weekly' | 'monthly' | 'products'>('monthly');
+
+  // Shipping configuration editing states
+  const [isEditingShipping, setIsEditingShipping] = useState(false);
+  const [editFixedFee, setEditFixedFee] = useState(shippingConfig.fixedFee);
+  const [editFreeThreshold, setEditFreeThreshold] = useState(shippingConfig.freeShippingThreshold);
+  const [editLocalCity, setEditLocalCity] = useState(shippingConfig.localCity);
+  const [newBairroName, setNewBairroName] = useState('');
+  const [newBairroFeeValue, setNewBairroFeeValue] = useState<number>(10);
+  const [shippingFeedback, setShippingFeedback] = useState<string | null>(null);
+
+  const handleSaveShippingConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateShippingConfig({
+      ...shippingConfig,
+      fixedFee: Number(editFixedFee),
+      freeShippingThreshold: Number(editFreeThreshold),
+      localCity: editLocalCity.trim() || 'Florianópolis'
+    });
+    setShippingFeedback('Configurações gerais de frete salvas com sucesso!');
+    setIsEditingShipping(false);
+    setTimeout(() => setShippingFeedback(null), 3000);
+  };
+
+  const handleAddBairroFee = () => {
+    if (!newBairroName.trim()) return;
+    const updatedBairros = {
+      ...shippingConfig.greenhouseBairros,
+      [newBairroName.trim()]: Number(newBairroFeeValue)
+    };
+    onUpdateShippingConfig({
+      ...shippingConfig,
+      greenhouseBairros: updatedBairros
+    });
+    setNewBairroName('');
+    setNewBairroFeeValue(10);
+    setShippingFeedback(`Bairro "${newBairroName.trim()}" adicionado!`);
+    setTimeout(() => setShippingFeedback(null), 3000);
+  };
+
+  const handleRemoveBairroFee = (bairro: string) => {
+    const updatedBairros = { ...shippingConfig.greenhouseBairros };
+    delete updatedBairros[bairro];
+    onUpdateShippingConfig({
+      ...shippingConfig,
+      greenhouseBairros: updatedBairros
+    });
+    setShippingFeedback(`Bairro "${bairro}" removido.`);
+    setTimeout(() => setShippingFeedback(null), 3000);
+  };
 
   // Chart Generation Helpers based on dynamic current time
   const baseDate = new Date();
@@ -498,6 +549,179 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
             >
               Ver relatório completo de produtos <ChevronRight className="w-3 h-3" />
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Dynamic Shipping Rate & Logistics Controller */}
+      <div id="admin-shipping-logistics-panel" className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 relative overflow-hidden">
+        {/* Header summary */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 mb-5 relative">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
+              <Truck className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-slate-800">Cálculo & Regras de Frete</h3>
+              <p className="text-xs text-slate-500">Configure as taxas de entrega para bairros locais e o gatilho de frete grátis.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setIsEditingShipping(!isEditingShipping);
+              setEditFixedFee(shippingConfig.fixedFee);
+              setEditFreeThreshold(shippingConfig.freeShippingThreshold);
+              setEditLocalCity(shippingConfig.localCity);
+            }}
+            className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-850 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 transition active:scale-95 cursor-pointer"
+          >
+            <Cog className="w-4 h-4 text-slate-500" />
+            <span>{isEditingShipping ? 'Cancelar Edição' : 'Editar Taxas Gerais'}</span>
+          </button>
+        </div>
+
+        {shippingFeedback && (
+          <div className="mb-4 text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 p-3 rounded-xl flex items-center gap-2 select-none">
+            <Check className="w-4 h-4 text-emerald-600" />
+            {shippingFeedback}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* General settings view / edit form */}
+          <div className="lg:col-span-1 space-y-4">
+            <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono mb-3">Definições Globais</h4>
+              {isEditingShipping ? (
+                <form onSubmit={handleSaveShippingConfig} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold block mb-1">
+                      Cidade Local Principal
+                    </label>
+                    <input
+                      type="text"
+                      value={editLocalCity}
+                      onChange={(e) => setEditLocalCity(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold block mb-1">
+                      Taxa Padrão de Entrega (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={editFixedFee}
+                      onChange={(e) => setEditFixedFee(Number(e.target.value))}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold block mb-1">
+                      Frete Grátis acima de (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={editFreeThreshold}
+                      onChange={(e) => setEditFreeThreshold(Number(e.target.value))}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    Salvar Ajustes
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-3 pt-1">
+                  <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-100">
+                    <span className="text-xs text-slate-500">Cidade de Operação</span>
+                    <span className="text-xs font-bold text-slate-800">{shippingConfig.localCity}</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-100">
+                    <span className="text-xs text-slate-500">Taxa Padrão</span>
+                    <span className="text-xs font-bold text-slate-850 font-mono bg-slate-50 border border-slate-100 px-2 py-0.5 rounded">{formatCurrency(shippingConfig.fixedFee || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-100">
+                    <span className="text-xs text-slate-500">Frete Grátis acima de</span>
+                    <span className="text-xs font-bold text-emerald-700 font-mono bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded">{formatCurrency(shippingConfig.freeShippingThreshold || 0)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Custom Neighborhood Exceptions */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 flex flex-col justify-between h-full">
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono mb-3">Tarifas por Bairro ({shippingConfig.localCity})</h4>
+                
+                {/* Scrollable list of neighborhood exceptions */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                  {Object.entries(shippingConfig.greenhouseBairros || {}).map(([bairro, fee]) => (
+                    <div key={bairro} className="bg-white px-3 py-2 rounded-xl border border-slate-100 hover:border-slate-200 flex items-center justify-between gap-2 shadow-xs transition">
+                      <span className="text-xs font-semibold text-slate-700 truncate" title={bairro}>{bairro}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-bold text-slate-800 bg-slate-50 border border-slate-150 rounded px-1.5 py-0.25">{formatCurrency(fee)}</span>
+                        <button
+                          onClick={() => handleRemoveBairroFee(bairro)}
+                          className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition active:scale-95 cursor-pointer"
+                          title={`Remover taxa customizada de ${bairro}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {Object.keys(shippingConfig.greenhouseBairros || {}).length === 0 && (
+                    <span className="text-slate-400 text-xs sm:col-span-2 py-6 text-center select-none">Nenhum bairro com tarifa customizada cadastrado. Todas as entregas locais usarão a taxa padrão.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Add form */}
+              <div className="border-t border-slate-100 pt-4 mt-4">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2 font-mono">Adicionar Tarifa Especial de Bairro</span>
+                <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="Ex: Campeche"
+                      value={newBairroName}
+                      onChange={(e) => setNewBairroName(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 placeholder-slate-400"
+                    />
+                  </div>
+                  <div className="w-full sm:w-28 relative">
+                    <span className="absolute left-2.5 top-2 ml-0.5 text-xs font-mono font-bold text-slate-400">R$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={newBairroFeeValue}
+                      onChange={(e) => setNewBairroFeeValue(Number(e.target.value))}
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-2.5 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono font-bold text-slate-800"
+                    />
+                  </div>
+                  <button
+                    onClick={handleAddBairroFee}
+                    disabled={!newBairroName.trim()}
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Adicionar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

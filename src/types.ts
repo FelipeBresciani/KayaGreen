@@ -3,20 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type WeightUnit = 'g' | 'kg';
+export type WeightUnit = 'g' | 'kg' | 'un';
 
 export interface Product {
   id: string;
   name: string;
   description: string;
-  availableWeight: number; // For stock management
+  availableWeight: number; // For stock management (grams or units)
   unit: WeightUnit;
-  pricePerWeight: number; // Base price for selling
+  pricePerWeight: number; // Base price for selling (or price per unit)
   price20g?: number; // Price specifically for 20g
   price40g?: number; // Price specifically for 40g
   price60g?: number; // Price specifically for 60g
   image: string; // URL or preset identifier
   status: 'ativo' | 'inativo';
+  saleType?: 'peso' | 'unidade'; // Sale format: weight or unit-based
 }
 
 export type OrderStatus =
@@ -51,6 +52,8 @@ export interface Order {
   updatedAt: string;
   notes?: string;
   paymentMethod?: string;
+  deliveryMethod?: 'entrega' | 'retirada';
+  deliveryFee?: number;
   statusHistory: {
     status: OrderStatus;
     updatedAt: string;
@@ -77,3 +80,11 @@ export interface Notification {
   createdAt: string;
   orderId?: string;
 }
+
+export interface ShippingConfig {
+  fixedFee: number;
+  freeShippingThreshold: number;
+  greenhouseBairros: Record<string, number>; // Neighborhood-specific custom rates (optional)
+  localCity: string;
+}
+

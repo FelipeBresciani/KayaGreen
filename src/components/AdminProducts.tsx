@@ -42,18 +42,22 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
   const [price20g, setPrice20g] = useState(6.00);
   const [price40g, setPrice40g] = useState(11.00);
   const [price60g, setPrice60g] = useState(15.00);
+  const [pricePerWeightInput, setPricePerWeightInput] = useState(10.00); // For unit base price
   const [status, setStatus] = useState<'ativo' | 'inativo'>('ativo');
+  const [saleType, setSaleType] = useState<'peso' | 'unidade'>('peso');
 
   const openAddModal = () => {
     setEditingProduct(null);
     setName('');
     setDescription('');
-    setAvailableWeight(1000);
+    setAvailableWeight(10); // default 10 units or 1000g
     setUnit('g');
     setPrice20g(6.00);
     setPrice40g(11.00);
     setPrice60g(15.00);
+    setPricePerWeightInput(10.00);
     setStatus('ativo');
+    setSaleType('peso');
     setIsModalOpen(true);
   };
 
@@ -63,6 +67,8 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
     setDescription(p.description || '');
     setAvailableWeight(p.availableWeight);
     setUnit(p.unit);
+    setSaleType(p.saleType || 'peso');
+    setPricePerWeightInput(p.pricePerWeight);
     
     // Set explicit prices or fall back to calculated ones
     const baseWeight = getProductBaseWeight(p.id);
@@ -79,53 +85,60 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || price20g <= 0 || price40g <= 0 || price60g <= 0 || availableWeight < 0) return;
+    if (saleType === 'peso') {
+      if (!name || price20g <= 0 || price40g <= 0 || price60g <= 0 || availableWeight < 0) return;
+    } else {
+      if (!name || pricePerWeightInput <= 0 || availableWeight < 0) return;
+    }
+
+    const payload: Omit<Product, 'id'> = {
+      name,
+      description: description || '',
+      availableWeight: Number(availableWeight),
+      unit: saleType === 'unidade' ? 'un' : unit,
+      pricePerWeight: saleType === 'unidade' ? Number(pricePerWeightInput) : Number(price20g),
+      image: editingProduct?.image || DEFAULT_FALLBACK_IMAGE,
+      status,
+      saleType,
+      ...(saleType === 'peso' ? {
+        price20g: Number(price20g),
+        price40g: Number(price40g),
+        price60g: Number(price60g),
+      } : {})
+    };
 
     if (editingProduct) {
       onUpdateProduct({
         id: editingProduct.id,
-        name,
-        description: description || '',
-        availableWeight: Number(availableWeight),
-        unit,
-        pricePerWeight: Number(price20g.toFixed(2)),
-        price20g: Number(price20g),
-        price40g: Number(price40g),
-        price60g: Number(price60g),
-        image: editingProduct.image || DEFAULT_FALLBACK_IMAGE,
-        status,
-      });
+        ...payload
+      } as Product);
     } else {
-      onAddProduct({
-        name,
-        description: description || '',
-        availableWeight: Number(availableWeight),
-        unit,
-        pricePerWeight: Number(price20g.toFixed(2)),
-        price20g: Number(price20g),
-        price40g: Number(price40g),
-        price60g: Number(price60g),
-        image: DEFAULT_FALLBACK_IMAGE,
-        status,
-      });
+      onAddProduct(payload);
     }
 
     setIsModalOpen(false);
   };
 
   const handleToggleStatus = (p: Product) => {
-    const baseWeight = getProductBaseWeight(p.id);
-    const calculated20g = p.price20g !== undefined ? p.price20g : Number(((p.pricePerWeight / baseWeight) * 20).toFixed(2));
-    const calculated40g = p.price40g !== undefined ? p.price40g : Number(((p.pricePerWeight / baseWeight) * 40).toFixed(2));
-    const calculated60g = p.price60g !== undefined ? p.price60g : Number(((p.pricePerWeight / baseWeight) * 60).toFixed(2));
+    if (p.saleType === 'unidade') {
+      onUpdateProduct({
+        ...p,
+        status: p.status === 'ativo' ? 'inativo' : 'ativo',
+      });
+    } else {
+      const baseWeight = getProductBaseWeight(p.id);
+      const calculated20g = p.price20g !== undefined ? p.price20g : Number(((p.pricePerWeight / baseWeight) * 20).toFixed(2));
+      const calculated40g = p.price40g !== undefined ? p.price40g : Number(((p.pricePerWeight / baseWeight) * 40).toFixed(2));
+      const calculated60g = p.price60g !== undefined ? p.price60g : Number(((p.pricePerWeight / baseWeight) * 60).toFixed(2));
 
-    onUpdateProduct({
-      ...p,
-      price20g: calculated20g,
-      price40g: calculated40g,
-      price60g: calculated60g,
-      status: p.status === 'ativo' ? 'inativo' : 'ativo',
-    });
+      onUpdateProduct({
+        ...p,
+        price20g: calculated20g,
+        price40g: calculated40g,
+        price60g: calculated60g,
+        status: p.status === 'ativo' ? 'inativo' : 'ativo',
+      });
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -189,23 +202,36 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                   <td className="p-4 font-semibold text-slate-800">
                     <div className="flex items-center gap-2">
                       <span className="text-base select-none">🌱</span>
-                      <span>{p.name}</span>
+                      <div className="flex flex-col">
+                        <span>{p.name}</span>
+                        {p.saleType === 'unidade' && (
+                          <span className="self-start mt-0.5 px-1.5 py-0.2 bg-blue-55 text-blue-800 text-[8px] font-black rounded uppercase tracking-wider">
+                            Vendido por Unidade
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="p-4 max-w-xs truncate" title={p.description}>
                     {p.description}
                   </td>
                   <td className="p-4 text-right font-bold font-mono">
-                    <span className={`${p.availableWeight <= 200 ? 'text-amber-600' : 'text-slate-700'}`}>
-                      {p.availableWeight} {p.unit || 'g'}
+                    <span className={`${p.availableWeight <= (p.saleType === 'unidade' ? 5 : 200) ? 'text-amber-600' : 'text-slate-700'}`}>
+                      {p.availableWeight} {p.saleType === 'unidade' ? 'un' : (p.unit || 'g')}
                     </span>
                   </td>
                   <td className="p-4 text-right">
-                    <div className="font-mono text-[10px] space-y-0.5 text-slate-650 inline-block text-left">
-                      <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">20g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong></div>
-                      <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">40g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price40g !== undefined ? p.price40g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 40))}</strong></div>
-                      <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">60g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price60g !== undefined ? p.price60g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 60))}</strong></div>
-                    </div>
+                    {p.saleType === 'unidade' ? (
+                      <div className="font-mono text-emerald-700 font-bold">
+                        {formatCurrency(p.pricePerWeight)} <span className="text-[10px] text-slate-400 font-normal">/ un</span>
+                      </div>
+                    ) : (
+                      <div className="font-mono text-[10px] space-y-0.5 text-slate-650 inline-block text-left">
+                        <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">20g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong></div>
+                        <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">40g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price40g !== undefined ? p.price40g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 40))}</strong></div>
+                        <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">60g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price60g !== undefined ? p.price60g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 60))}</strong></div>
+                      </div>
+                    )}
                   </td>
                   <td className="p-4 text-center">
                     <button
@@ -267,6 +293,11 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                   <div className="flex items-center gap-1.5 font-bold text-slate-805 text-xs truncate">
                     <span>🌱</span>
                     <span className="truncate">{p.name}</span>
+                    {p.saleType === 'unidade' && (
+                      <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 text-[8px] font-bold rounded">
+                        Unitário
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => handleToggleStatus(p)}
@@ -286,26 +317,36 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
 
               <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="space-y-1">
-                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Tabela de Preços</span>
-                  <div className="grid grid-cols-3 gap-1 font-mono text-[10px]">
-                    <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                      <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">20g</span>
-                      <strong className="text-emerald-700">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong>
+                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">
+                    {p.saleType === 'unidade' ? 'Preço do Produto' : 'Tabela de Preços'}
+                  </span>
+                  {p.saleType === 'unidade' ? (
+                    <div className="font-mono text-emerald-700 font-bold text-xs bg-slate-50 px-2 py-1 rounded border border-slate-100 inline-block">
+                      {formatCurrency(p.pricePerWeight)} / unidade
                     </div>
-                    <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                      <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">40g</span>
-                      <strong className="text-emerald-700">{formatCurrency(p.price40g !== undefined ? p.price40g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 40))}</strong>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-1 font-mono text-[10px]">
+                      <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                        <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">20g</span>
+                        <strong className="text-emerald-700">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong>
+                      </div>
+                      <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                        <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">40g</span>
+                        <strong className="text-emerald-700">{formatCurrency(p.price40g !== undefined ? p.price40g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 40))}</strong>
+                      </div>
+                      <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                        <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">60g</span>
+                        <strong className="text-emerald-700">{formatCurrency(p.price60g !== undefined ? p.price60g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 60))}</strong>
+                      </div>
                     </div>
-                    <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                      <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">60g</span>
-                      <strong className="text-emerald-700">{formatCurrency(p.price60g !== undefined ? p.price60g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 60))}</strong>
-                    </div>
-                  </div>
+                  )}
                 </div>
                 <div className="pt-2 sm:pt-0 sm:text-right flex justify-between sm:block border-t sm:border-t-0 border-slate-50">
-                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Disponível ({p.unit})</span>
-                  <span className={`font-bold text-xs ${p.availableWeight <= 200 ? 'text-amber-600' : 'text-slate-700'}`}>
-                    {p.availableWeight} {p.unit}
+                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">
+                    {p.saleType === 'unidade' ? 'Disponível (un)' : `Disponível (${p.unit})`}
+                  </span>
+                  <span className={`font-bold text-xs ${p.availableWeight <= (p.saleType === 'unidade' ? 5 : 200) ? 'text-amber-600' : 'text-slate-700'}`}>
+                    {p.availableWeight} {p.saleType === 'unidade' ? 'un' : p.unit}
                   </span>
                 </div>
               </div>
@@ -396,6 +437,43 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
             {/* Modal Form */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
               
+              {/* Product SALE FORMAT SELECTOR */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Formato de Venda</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSaleType('peso');
+                      setUnit('g');
+                    }}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer select-none ${
+                      saleType === 'peso'
+                        ? 'border-emerald-500 bg-emerald-50/50 text-emerald-800 font-bold'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    <span className="text-base">⚖️</span>
+                    <span className="text-[11px]">Por Peso (g/kg)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSaleType('unidade');
+                      setUnit('un');
+                    }}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer select-none ${
+                      saleType === 'unidade'
+                        ? 'border-emerald-500 bg-emerald-50/50 text-emerald-800 font-bold'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    <span className="text-base">📦</span>
+                    <span className="text-[11px]">Por Unidade</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Product NAME */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nome do Produto</label>
@@ -427,80 +505,105 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                 {/* Available Weight */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                    <Scale className="w-3.5 h-3.5 text-emerald-600" /> Estoque Disponível (Gramas)
+                    <Scale className="w-3.5 h-3.5 text-emerald-600" />
+                    {saleType === 'unidade' ? 'Estoque Disponível (Unidades)' : 'Estoque Disponível (Gramas)'}
                   </label>
                   <input
                     type="number"
                     required
                     min={0}
                     value={availableWeight}
-                    onChange={e => {
-                      setAvailableWeight(Number(e.target.value));
-                      setUnit('g');
-                    }}
-                    placeholder="Ex: 1500"
+                    onChange={e => setAvailableWeight(Number(e.target.value))}
+                    placeholder={saleType === 'unidade' ? "Ex: 25" : "Ex: 1500"}
                     className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl px-3 py-2 text-slate-800 font-mono"
                   />
                 </div>
 
               </div>
 
-              {/* Specific pricing for 20g, 40g, 60g */}
-              <div className="p-3.5 bg-slate-50/70 border border-slate-150 rounded-xl space-y-3.5">
-                <p className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider flex items-center gap-1">
-                  💰 Preço de Venda por Gramatura
-                </p>
-                <div className="grid grid-cols-3 gap-2">
+              {/* Pricing section based on sale type */}
+              {saleType === 'unidade' ? (
+                <div className="p-3.5 bg-slate-50/70 border border-slate-150 rounded-xl space-y-3">
+                  <p className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                    💰 Preço de Venda
+                  </p>
                   <div>
-                    <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 20g</label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1 leading-none">Preço por Unidade</label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
+                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-xs">R$</span>
                       <input
                         type="number"
                         step="0.01"
                         required
                         min={0.01}
-                        value={price20g}
-                        onChange={e => setPrice20g(Number(e.target.value))}
-                        className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
+                        value={pricePerWeightInput}
+                        onChange={e => setPricePerWeightInput(Number(e.target.value))}
+                        className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-3 py-2 text-slate-800 font-mono text-xs"
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 40g</label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        required
-                        min={0.01}
-                        value={price40g}
-                        onChange={e => setPrice40g(Number(e.target.value))}
-                        className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 60g</label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        required
-                        min={0.01}
-                        value={price60g}
-                        onChange={e => setPrice60g(Number(e.target.value))}
-                        className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
-                      />
-                    </div>
-                  </div>
+                  <p className="text-[10px] text-slate-400 leading-normal italic">
+                    Defina o valor unitário cobrado por cada unidade deste produto.
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-400 leading-normal italic">
-                  Defina valores de venda personalizados para cada porção.
-                </p>
-              </div>
+              ) : (
+                /* Specific pricing for 20g, 40g, 60g */
+                <div className="p-3.5 bg-slate-50/70 border border-slate-150 rounded-xl space-y-3.5">
+                  <p className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                    💰 Preço de Venda por Gramatura
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 20g</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          min={0.01}
+                          value={price20g}
+                          onChange={e => setPrice20g(Number(e.target.value))}
+                          className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 40g</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          min={0.01}
+                          value={price40g}
+                          onChange={e => setPrice40g(Number(e.target.value))}
+                          className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 60g</label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          min={0.01}
+                          value={price60g}
+                          onChange={e => setPrice60g(Number(e.target.value))}
+                          className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-normal italic">
+                    Defina valores de venda personalizados para cada porção.
+                  </p>
+                </div>
+              )}
 
               {/* Status active/inactive toggle */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 flex items-center justify-between">

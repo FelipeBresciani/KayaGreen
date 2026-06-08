@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Product, Customer, Order, Notification, OrderStatus } from './types';
+import { Product, Customer, Order, Notification, OrderStatus, ShippingConfig } from './types';
 
 
 // Firebase core configuration
@@ -62,6 +62,25 @@ import {
 
 
 
+const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
+  fixedFee: 10.00,
+  freeShippingThreshold: 75.00,
+  localCity: 'Florianópolis',
+  greenhouseBairros: {
+    'Centro': 5.00,
+    'Trindade': 8.00,
+    'Itacorubi': 8.00,
+    'Córrego Grande': 8.00,
+    'Saco dos Limões': 10.00,
+    'Campeche': 15.00,
+    'Lagoa da Conceição': 12.00,
+    'Ingleses': 20.00,
+    'Jurerê': 20.00,
+    'Coqueiros': 10.00,
+    'Estreito': 10.00
+  }
+};
+
 export default function App() {
   const useFirebase = isFirebaseConfigured();
 
@@ -87,6 +106,11 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>(() => {
     const raw = localStorage.getItem('micro_orders');
     return (raw && !useFirebase) ? JSON.parse(raw) : [];
+  });
+
+  const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(() => {
+    const raw = localStorage.getItem('micro_shipping_config');
+    return raw ? JSON.parse(raw) : DEFAULT_SHIPPING_CONFIG;
   });
 
   const [notifications, setNotifications] = useState<Notification[]>(() => {
@@ -117,9 +141,10 @@ export default function App() {
       localStorage.setItem('micro_products', JSON.stringify(products));
       localStorage.setItem('micro_customers', JSON.stringify(customers));
       localStorage.setItem('micro_orders', JSON.stringify(orders));
+      localStorage.setItem('micro_shipping_config', JSON.stringify(shippingConfig));
       localStorage.setItem('micro_notifications', JSON.stringify(notifications));
     }
-  }, [role, currentCustomerId, products, customers, orders, notifications, useFirebase]);
+  }, [role, currentCustomerId, products, customers, orders, shippingConfig, notifications, useFirebase]);
 
   // Firebase Realtime Synchronization Listeners
   useEffect(() => {
@@ -248,12 +273,28 @@ export default function App() {
       });
     }
 
+    // 6. Sync Shipping Configuration (Client and Admin both)
+    const unsubscribeShipping = onSnapshot(doc(db, 'shipping_config', 'main_config'), (snapshot) => {
+      if (snapshot.exists()) {
+        setShippingConfig(snapshot.data() as ShippingConfig);
+      } else {
+        if (role === 'admin') {
+          // Initialize default shipping config if not found
+          setDoc(doc(db, 'shipping_config', 'main_config'), DEFAULT_SHIPPING_CONFIG)
+            .catch(err => console.warn("Failed to seed default shipping config:", err));
+        }
+      }
+    }, (error) => {
+      console.warn("Shipping config sync error:", error);
+    });
+
     return () => {
       unsubscribeProducts();
       unsubscribeUsers();
       unsubscribeOrders();
       unsubscribeNotifications();
       unsubscribeAdmins();
+      unsubscribeShipping();
     };
   }, [useFirebase, userLoggedIn, role, currentCustomerId]);
 
@@ -630,6 +671,17 @@ const handleUpdateProduct = async (updatedProd: Product) => {
     }
   };
 
+  const handleUpdateShippingConfig = async (newConfig: ShippingConfig) => {
+    setShippingConfig(newConfig);
+    if (useFirebase && db) {
+      try {
+        await setDoc(doc(db, 'shipping_config', 'main_config'), newConfig);
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, 'shipping_config/main_config');
+      }
+    }
+  };
+
   // Client shopping checkout placement handler
   const handlePlaceOrder = async (
     items: {
@@ -637,19 +689,22 @@ const handleUpdateProduct = async (updatedProd: Product) => {
       productName: string;
       quantity: number;
       weight: number;
-      unit: 'g' | 'kg';
+      unit: 'g' | 'kg' | 'un';
       pricePerWeight: number;
       subtotal: number;
     }[],
     notes?: string,
-    paymentMethod?: string
+    paymentMethod?: string,
+    deliveryMethod?: 'entrega' | 'retirada',
+    deliveryFee?: number
   ) => {
     const activeCustomer = customers.find(c => c.id === currentCustomerId);
     if (!activeCustomer) return;
 
     const freshOrderId = 'PED-' + Math.floor(1000 + Math.random() * 9000);
     const nowISO = new Date().toISOString();
-    const sumTotal = items.reduce((s, i) => s + i.subtotal, 0);
+    const sumTotalItems = items.reduce((s, i) => s + i.subtotal, 0);
+    const sumTotal = sumTotalItems + (deliveryFee || 0);
 
     const freshOrder: Order = {
       id: freshOrderId,
@@ -665,6 +720,8 @@ const handleUpdateProduct = async (updatedProd: Product) => {
       updatedAt: nowISO,
       notes: notes || '',
       paymentMethod: paymentMethod || '',
+      deliveryMethod: deliveryMethod || 'retirada',
+      deliveryFee: deliveryFee || 0,
       statusHistory: [
         { status: 'aguardando_aprovacao', updatedAt: nowISO, comment: 'Pedido submetido pelo cliente. Aguardando aprovação financeira.' }
       ]
@@ -1066,6 +1123,8 @@ const handleUpdateProduct = async (updatedProd: Product) => {
                     customers={customers}
                     products={products}
                     onNavigateTo={(tab) => setAdminTab(tab)}
+                    shippingConfig={shippingConfig}
+                    onUpdateShippingConfig={handleUpdateShippingConfig}
                   />
                 )}
                 {adminTab === 'Produtos' && (
@@ -1107,6 +1166,7 @@ const handleUpdateProduct = async (updatedProd: Product) => {
                     currentCustomer={currentCustomer}
                     onPlaceOrder={handlePlaceOrder}
                     onCartChange={(isOpen) => setCartOpen(isOpen)}
+                    shippingConfig={shippingConfig}
                   />
                 )}
                 {clientTab === 'Meus Pedidos' && (

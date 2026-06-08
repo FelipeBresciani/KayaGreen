@@ -58,13 +58,14 @@ service cloud.firestore {
         && data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && data.description is string && data.description.size() <= 4000
         && (data.availableWeight is int || data.availableWeight is float) && data.availableWeight >= 0
-        && data.unit in ['g', 'kg']
+        && data.unit in ['g', 'kg', 'un']
         && (data.pricePerWeight is int || data.pricePerWeight is float) && data.pricePerWeight >= 0
         && data.image is string && data.image.size() <= 2048
         && data.status in ['ativo', 'inativo']
         && (!data.keys().hasAny(['price20g']) || data.price20g is int || data.price20g is float)
         && (!data.keys().hasAny(['price40g']) || data.price40g is int || data.price40g is float)
-        && (!data.keys().hasAny(['price60g']) || data.price60g is int || data.price60g is float);
+        && (!data.keys().hasAny(['price60g']) || data.price60g is int || data.price60g is float)
+        && (!data.keys().hasAny(['saleType']) || data.saleType in ['peso', 'unidade']);
     }
 
     function isValidOrder(data) {
@@ -145,6 +146,12 @@ service cloud.firestore {
     match /admins/{adminId} {
       allow read: if isSignedIn();
       allow write: if isAdmin(); 
+    }
+
+    // 6. Shipping Configuration (read by anyone, updated by administrators)
+    match /shipping_config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }

@@ -140,6 +140,14 @@ export default function ClientOrders({ orders, currentCustomerId }: ClientOrders
                       </span>
                     </div>
                   )}
+                  {focusedOrder.deliveryMethod && (
+                    <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                      <span className="text-slate-500 font-medium">Forma de Recebimento:</span>
+                      <span className="bg-slate-50 text-slate-700 border border-slate-200 font-bold px-1.5 py-0.5 rounded text-[9px] uppercase flex items-center gap-0.5">
+                        {focusedOrder.deliveryMethod === 'entrega' ? '🚚 Entrega' : '🏠 Retirada'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-left sm:text-right">
@@ -209,7 +217,7 @@ export default function ClientOrders({ orders, currentCustomerId }: ClientOrders
               </div>
 
               {/* Order breakdown list visual */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
+              <div className="space-y-3 pt-2 border-t border-slate-100">
                 <h4 className="font-mono font-bold text-[10.5px] text-slate-400 uppercase tracking-widest flex items-center gap-1 py-1">
                   <FileText className="w-3.5 h-3.5" /> Detalhamento de Itens Adquiridos
                 </h4>
@@ -219,7 +227,11 @@ export default function ClientOrders({ orders, currentCustomerId }: ClientOrders
                       <div>
                         <p className="font-bold text-slate-800">{i.productName}</p>
                         <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                          {i.quantity} pacote(s) x {i.weight}{i.unit} ({formatCurrency(i.pricePerWeight)}/unid)
+                          {i.unit === 'un' ? (
+                            `${i.quantity} unidade(s) (${formatCurrency(i.pricePerWeight)}/unid)`
+                          ) : (
+                            `${i.quantity} pacote(s) x ${i.weight}${i.unit} (${formatCurrency(i.pricePerWeight)}/unid)`
+                          )}
                         </p>
                       </div>
                       <span className="font-bold font-mono text-slate-800">
@@ -227,6 +239,34 @@ export default function ClientOrders({ orders, currentCustomerId }: ClientOrders
                       </span>
                     </div>
                   ))}
+                </div>
+
+                {/* Subtotal & delivery fee breakdown */}
+                <div className="bg-slate-50/40 p-3 rounded-xl border border-slate-200/50 space-y-1.5 text-[11px] text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Subtotal de Itens:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {formatCurrency(focusedOrder.items.reduce((sum, item) => sum + item.subtotal, 0))}
+                    </span>
+                  </div>
+                  {focusedOrder.deliveryMethod === 'entrega' && (
+                    <div className="flex justify-between">
+                      <span>Taxa de Entrega:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        {focusedOrder.deliveryFee === 0 || !focusedOrder.deliveryFee ? 'Grátis' : formatCurrency(focusedOrder.deliveryFee)}
+                      </span>
+                    </div>
+                  )}
+                  {focusedOrder.deliveryMethod === 'retirada' && (
+                    <div className="flex justify-between">
+                      <span>Forma de Recebimento:</span>
+                      <span className="font-bold text-emerald-800">Retirada na Estufa (Grátis)</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-1.5 border-t border-slate-200 text-slate-950 font-black">
+                    <span>Total Pago / Faturado:</span>
+                    <span className="font-mono text-emerald-800">{formatCurrency(focusedOrder.total)}</span>
+                  </div>
                 </div>
 
                 {focusedOrder.notes && (
