@@ -19,36 +19,47 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
   const stats = calculateDashboardStats(orders, customers, products);
   const [activeChartTab, setActiveChartTab] = useState<'daily' | 'weekly' | 'monthly' | 'products'>('monthly');
 
-  // Chart Generation Helpers based on mock historical limits
-  // Group orders chronologically
-  const sortedCompletedOrders = [...orders]
-    .filter(o => o.status === 'concluido')
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  // Chart Generation Helpers based on dynamic current time
+  const baseDate = new Date();
+  baseDate.setHours(23, 59, 59, 999); // Ensure end of today covers all of today's orders
 
-  // 1. Group by Month (March, April, May, June 2026)
-  const monthLabels = ['Março', 'Abril', 'Maio', 'Junho'];
-  const monthRevenue = [0, 0, 0, 0]; // March=0, April=1, May=2, June=3
+  // 1. Group by Month (Last 4 trailing months dynamically)
+  const monthsNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const monthLabels: string[] = [];
+  const monthRevenue = [0, 0, 0, 0];
   const monthOrderCounts = [0, 0, 0, 0];
+
+  for (let i = 3; i >= 0; i--) {
+    const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
+    monthLabels.push(monthsNames[d.getMonth()]);
+  }
 
   orders.forEach(o => {
     if (o.status === 'concluido') {
       const date = new Date(o.createdAt);
-      const m = date.getUTCMonth(); // 2=March, 3=April, 4=May, 5=June
-      if (m >= 2 && m <= 5) {
-        monthRevenue[m - 2] += Number(o.total || 0);
-        monthOrderCounts[m - 2] += 1;
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      
+      // Find matching slot in standard trailing 4 months
+      for (let i = 3; i >= 0; i--) {
+        const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
+        if (d.getFullYear() === year && d.getMonth() === month) {
+          const idx = 3 - i; // map to target index
+          monthRevenue[idx] += Number(o.total || 0);
+          monthOrderCounts[idx] += 1;
+          break;
+        }
       }
     }
   });
 
   const maxMonthRev = Math.max(...monthRevenue, 1);
 
-  // 2. Group by Day (Dynamic last 7 days leading to June 05)
+  // 2. Group by Day (Dynamic last 7 days ending with today)
   const dayLabels: string[] = [];
   const dayRevenue: number[] = [0, 0, 0, 0, 0, 0, 0];
   const dayOrders: number[] = [0, 0, 0, 0, 0, 0, 0];
 
-  const baseDate = new Date('2026-06-05T20:00:00Z');
   for (let i = 6; i >= 0; i--) {
     const d = new Date(baseDate);
     d.setDate(d.getDate() - i);
@@ -72,7 +83,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
   });
   const maxDayRev = Math.max(...dayRevenue, 1);
 
-  // 3. Group by Week (Dynamically compute trailing 5 weeks from June 05)
+  // 3. Group by Week (Dynamically compute trailing 5 weeks from baseDate)
   const weekLabels = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5 (Atu)'];
   const weekRevenue = [0, 0, 0, 0, 0];
   orders.forEach(o => {
@@ -113,7 +124,7 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
         </div>
         <div className="flex items-center gap-2 text-xs font-mono text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg shrink-0">
           <Calendar className="w-4 h-4 text-emerald-600" />
-          <span>Baseline: 05 de Junho de 2026</span>
+          <span>Dados atualizados até: {new Date().toLocaleDateString('pt-BR')}</span>
         </div>
       </div>
 
@@ -290,91 +301,99 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
             </div>
 
             {/* Dynamic Custom Chart Content */}
-            <div className="h-64 flex items-end justify-between relative mt-4 pt-10 px-4">
+            <div className="h-64 relative mt-4 pt-10 px-4">
               {/* Chart Grid Lines */}
-              <div className="absolute inset-0 pt-10 pb-2 flex flex-col justify-between pointer-events-none">
-                <div className="border-t border-dashed border-slate-100 w-full" />
-                <div className="border-t border-dashed border-slate-100 w-full" />
-                <div className="border-t border-dashed border-slate-100 w-full" />
-                <div className="border-t border-dashed border-slate-100 w-full animate-pulse" />
-              </div>
+              {activeChartTab !== 'products' && (
+                <div className="absolute inset-0 pt-10 pb-2 flex flex-col justify-between pointer-events-none">
+                  <div className="border-t border-dashed border-slate-100 w-full" />
+                  <div className="border-t border-dashed border-slate-100 w-full" />
+                  <div className="border-t border-dashed border-slate-100 w-full" />
+                  <div className="border-t border-dashed border-slate-100 w-full" />
+                </div>
+              )}
 
               {/* MONTHLY CHART */}
               {activeChartTab === 'monthly' && (
-                monthLabels.map((lbl, idx) => {
-                  const rev = monthRevenue[idx];
-                  const heightPercent = maxMonthRev > 0 ? (rev / maxMonthRev) * 100 : 0;
-                  return (
-                    <div key={lbl} className="flex-1 h-full flex flex-col justify-end items-center group relative z-10">
-                      <div className="absolute top-0 bg-slate-900 text-white text-[10px] font-mono py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition shadow pointer-events-none">
-                        {formatCurrency(rev)} ({monthOrderCounts[idx]} ped)
+                <div className="w-full h-full flex items-end justify-between relative z-10">
+                  {monthLabels.map((lbl, idx) => {
+                    const rev = monthRevenue[idx];
+                    const heightPercent = maxMonthRev > 0 ? (rev / maxMonthRev) * 100 : 0;
+                    return (
+                      <div key={lbl} className="flex-1 h-full flex flex-col justify-end items-center group relative z-10">
+                        <div className="absolute top-0 bg-slate-900 text-white text-[10px] font-mono py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition shadow pointer-events-none">
+                          {formatCurrency(rev)} ({monthOrderCounts[idx]} ped)
+                        </div>
+                        <div
+                          className="w-6 sm:w-12 bg-gradient-to-t from-emerald-600 to-emerald-400 hover:to-emerald-300 rounded-t-lg transition-all duration-350 relative"
+                          style={{ height: `${Math.max(heightPercent, 4)}%` }}
+                        >
+                          {/* Interactive overlay */}
+                          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-lg" />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 mt-2 font-sans tracking-tight">
+                          {lbl}
+                        </span>
                       </div>
-                      <div
-                        className="w-6 sm:w-12 bg-gradient-to-t from-emerald-600 to-emerald-400 hover:to-emerald-300 rounded-t-lg transition-all duration-500 relative animate-pulse"
-                        style={{ height: `${Math.max(heightPercent, 4)}%` }}
-                      >
-                        {/* Interactive overlay */}
-                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-lg" />
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 mt-2 font-sans tracking-tight">
-                        {lbl}
-                      </span>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </div>
               )}
 
               {/* WEEKLY CHART */}
               {activeChartTab === 'weekly' && (
-                weekLabels.map((lbl, idx) => {
-                  const rev = weekRevenue[idx];
-                  const heightPercent = maxWeekRev > 0 ? (rev / maxWeekRev) * 100 : 0;
-                  return (
-                    <div key={lbl} className="flex-1 h-full flex flex-col justify-end items-center group relative z-10">
-                      <div className="absolute top-0 bg-slate-900 text-white text-[10px] font-mono py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition shadow pointer-events-none">
-                        {formatCurrency(rev)}
+                <div className="w-full h-full flex items-end justify-between relative z-10">
+                  {weekLabels.map((lbl, idx) => {
+                    const rev = weekRevenue[idx];
+                    const heightPercent = maxWeekRev > 0 ? (rev / maxWeekRev) * 100 : 0;
+                    return (
+                      <div key={lbl} className="flex-1 h-full flex flex-col justify-end items-center group relative z-10">
+                        <div className="absolute top-0 bg-slate-900 text-white text-[10px] font-mono py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition shadow pointer-events-none">
+                          {formatCurrency(rev)}
+                        </div>
+                        <div
+                          className="w-4 sm:w-8 bg-gradient-to-t from-indigo-600 to-indigo-400 hover:to-indigo-300 rounded-t-md transition-all duration-350 relative"
+                          style={{ height: `${Math.max(heightPercent, 4)}%` }}
+                        >
+                          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-md" />
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400 mt-2">
+                          {lbl}
+                        </span>
                       </div>
-                      <div
-                        className="w-4 sm:w-8 bg-gradient-to-t from-indigo-600 to-indigo-400 hover:to-indigo-300 rounded-t-md transition-all duration-500 relative animate-pulse"
-                        style={{ height: `${Math.max(heightPercent, 4)}%` }}
-                      >
-                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-md" />
-                      </div>
-                      <span className="text-[9px] font-bold text-slate-400 mt-2">
-                        {lbl}
-                      </span>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </div>
               )}
 
               {/* DAILY CHART */}
               {activeChartTab === 'daily' && (
-                dayLabels.map((lbl, idx) => {
-                  const rev = dayRevenue[idx];
-                  const heightPercent = maxDayRev > 0 ? (rev / maxDayRev) * 100 : 0;
-                  return (
-                    <div key={lbl} className="flex-1 h-full flex flex-col justify-end items-center group relative z-10">
-                      <div className="absolute top-0 bg-slate-900 text-white text-[10px] font-mono py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition shadow pointer-events-none">
-                        {formatCurrency(rev)} ({dayOrders[idx]} ped)
+                <div className="w-full h-full flex items-end justify-between relative z-10">
+                  {dayLabels.map((lbl, idx) => {
+                    const rev = dayRevenue[idx];
+                    const heightPercent = maxDayRev > 0 ? (rev / maxDayRev) * 100 : 0;
+                    return (
+                      <div key={lbl} className="flex-1 h-full flex flex-col justify-end items-center group relative z-10">
+                        <div className="absolute top-0 bg-slate-900 text-white text-[10px] font-mono py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition shadow pointer-events-none">
+                          {formatCurrency(rev)} ({dayOrders[idx]} ped)
+                        </div>
+                        <div
+                          className="w-5 min-[410px]:w-8 sm:w-10 bg-gradient-to-t from-emerald-500 to-teal-400 hover:to-teal-300 rounded-t-md transition-all duration-350 relative"
+                          style={{ height: `${Math.max(heightPercent, 4)}%` }}
+                        >
+                          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-md" />
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-500 mt-2">
+                          {lbl}
+                        </span>
                       </div>
-                      <div
-                        className="w-5 min-[410px]:w-8 sm:w-10 bg-gradient-to-t from-emerald-500 to-teal-400 hover:to-teal-300 rounded-t-md transition-all duration-500 relative animate-pulse"
-                        style={{ height: `${Math.max(heightPercent, 4)}%` }}
-                      >
-                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition rounded-t-md" />
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-500 mt-2">
-                        {lbl}
-                      </span>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </div>
               )}
 
               {/* PRODUCTS BAR RANKING */}
               {activeChartTab === 'products' && (
-                <div className="w-full h-full flex flex-col justify-end gap-2 text-xs select-none">
+                <div className="w-full h-full flex flex-col justify-center gap-3 text-xs select-none relative z-10 pb-2">
                   {productRanking.slice(0, 4).map((p, idx) => {
                     const widthPercent = maxProductQty > 0 ? (p.quantity / maxProductQty) * 100 : 0;
                     const colors = [
@@ -385,23 +404,23 @@ export default function AdminDashboard({ orders, customers, products, onNavigate
                     ];
                     return (
                       <div key={p.id} className="w-full flex items-center justify-between gap-4">
-                        <span className="w-1/3 truncate font-medium text-slate-700 text-[11px] text-left">
+                        <span className="w-1/3 truncate font-semibold text-slate-700 text-[11px] text-left">
                           {p.name}
                         </span>
-                        <div className="w-1/2 bg-slate-100 h-4 rounded overflow-hidden relative">
+                        <div className="w-1/2 bg-slate-100 h-5 rounded-md overflow-hidden relative border border-slate-100/60">
                           <div
-                            className={`${colors[idx % colors.length]} h-full rounded transition-all duration-500`}
+                            className={`${colors[idx % colors.length]} h-full rounded-l-md transition-all duration-500`}
                             style={{ width: `${Math.max(widthPercent, 5)}%` }}
                           />
                         </div>
-                        <span className="w-1/6 font-mono font-bold text-slate-600 text-[10px] text-right">
-                          {p.quantity} unid.
+                        <span className="w-1/6 font-mono font-bold text-slate-600 text-[11px] text-right">
+                          {p.quantity} {p.quantity === 1 ? 'unid.' : 'unid.'}
                         </span>
                       </div>
                     );
                   })}
                   {productRanking.length === 0 && (
-                    <div className="text-slate-400 text-center py-10">Nenhum dado de vendas ainda.</div>
+                    <div className="text-slate-400 text-center py-10">Nenhum produto cadastrado para calcular ranking de vendas.</div>
                   )}
                 </div>
               )}

@@ -46,14 +46,12 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
     return generateReportData(orders, products, customers, filterState);
   }, [orders, products, customers, filterState]);
 
-  // Filter, sort and partition product list into two disjoint lists (Top and Bottom performers)
-  // to avoid overlap and visual logical contradictions.
-  const partitionedProducts = useMemo(() => {
+  // Filter & sort all products descending by the active criteria selected
+  const sortedProducts = useMemo(() => {
     // report.products.leastSold has all products in the database
     const allProducts = [...report.products.leastSold];
     
-    // Sort all products descending by the active criteria
-    allProducts.sort((a, b) => {
+    return allProducts.sort((a, b) => {
       if (productSortBy === 'revenue') {
         if (b.revenue !== a.revenue) return b.revenue - a.revenue;
         if (b.quantity !== a.quantity) return b.quantity - a.quantity;
@@ -70,30 +68,10 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
         return (b.totalGrams || 0) - (a.totalGrams || 0);
       }
     });
-
-    // Partition: top performers go in topHalf, bottom performers in bottomHalf
-    const midpoint = Math.ceil(allProducts.length / 2);
-    const topHalfRaw = allProducts.slice(0, midpoint);
-    const bottomHalfRaw = allProducts.slice(midpoint);
-
-    // Keep only actual selling products in the top half
-    const topHalf = topHalfRaw.filter(p => p.quantity > 0 || p.revenue > 0 || (p.totalGrams && p.totalGrams > 0));
-    
-    // Any product filtered out of topHalf (because it had 0 sales) goes to bottomHalf
-    const filteredOutFromTop = topHalfRaw.filter(p => !(p.quantity > 0 || p.revenue > 0 || (p.totalGrams && p.totalGrams > 0)));
-    const bottomHalf = [...filteredOutFromTop, ...bottomHalfRaw];
-
-    // Sort bottomHalf ascending so that the worst sellers (usually 0) are listed first
-    const bottomAscending = [...bottomHalf].reverse();
-
-    return {
-      mostSold: topHalf,
-      leastSold: bottomAscending
-    };
   }, [report.products.leastSold, productSortBy]);
 
-  const sortedMostSold = partitionedProducts.mostSold;
-  const sortedLeastSold = partitionedProducts.leastSold;
+  const sortedMostSold = sortedProducts;
+  const sortedLeastSold = [...sortedProducts].reverse();
 
   // Clear filters
   const handleResetFilters = () => {
@@ -738,7 +716,7 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
               <div className="bg-emerald-50/25 border border-emerald-100/40 rounded-2xl p-3.5 flex items-center gap-2 text-xs">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-slate-650 font-medium leading-relaxed">
-                  Ranking exibido em ordem de <strong className="text-emerald-800">
+                  Catálogo completo exibido em ordem de <strong className="text-emerald-800">
                     {productSortBy === 'revenue' 
                       ? 'Faturamento (Receita Gerada)' 
                       : productSortBy === 'weight' 
@@ -748,59 +726,60 @@ export default function AdminReports({ orders, products, customers }: AdminRepor
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Products Most Sold */}
-                <div>
-                  <h4 className="font-bold text-xs text-emerald-800 flex items-center gap-1.5 pb-2 border-b border-emerald-100 mb-3">
-                    <Award className="w-4 h-4" /> Culturas Mais Vendidas (Maior Demanda)
-                  </h4>
-                  <div className="space-y-2">
-                    {sortedMostSold.map((p, idx) => (
-                      <div key={idx} className="p-3 bg-emerald-50/20 border border-emerald-100/40 rounded-xl flex items-center justify-between gap-4 text-xs">
-                        <div>
-                          <p className="font-bold text-slate-800">{p.name}</p>
-                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] mt-0.5">
-                            <span className="text-slate-400 font-mono">Pacotes: {p.quantity}</span>
-                            <span className="text-slate-300">•</span>
-                            <span className="text-emerald-600 font-semibold font-mono">Total de peso: {formatGrams(p.totalGrams || 0)}</span>
-                          </div>
-                        </div>
-                        <span className="font-bold font-mono text-emerald-800">
-                          {formatCurrency(p.revenue)}
-                        </span>
-                      </div>
-                    ))}
-                    {sortedMostSold.length === 0 && (
-                      <p className="text-slate-400 text-center py-6">Nenhum produto vendido no período.</p>
+              <div className="overflow-x-auto bg-white rounded-2xl border border-slate-150 p-4 shadow-sm">
+                <table className="w-full text-left text-xs text-slate-705 border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-slate-400 font-mono font-bold uppercase text-[9px]">
+                      <th className="py-2.5 pl-2">Posição</th>
+                      <th className="py-2.5">Cultura / Produto</th>
+                      <th className="py-2.5 text-center font-bold">Faturamento Realizado</th>
+                      <th className="py-2.5 text-center font-bold">Pacotes Vendidos</th>
+                      <th className="py-2.5 text-right pr-2 font-bold">Volume Total Vendido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedProducts.map((p, idx) => {
+                      const isTopPerformance = idx < 3;
+                      const hasVendas = p.quantity > 0 || p.revenue > 0 || (p.totalGrams && p.totalGrams > 0);
+                      
+                      return (
+                        <tr key={idx} className={`border-b border-slate-50 hover:bg-slate-50/60 transition ${!hasVendas ? 'opacity-65' : ''}`}>
+                          <td className="py-3 pl-2 font-mono font-bold">
+                            <span className={`inline-flex h-6 w-6 rounded-full items-center justify-center text-[10px] ${
+                              isTopPerformance && hasVendas
+                                ? 'bg-emerald-100 text-emerald-800 font-extrabold shadow-2xs' 
+                                : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {idx + 1}
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            <div>
+                              <span className="font-semibold text-slate-800 text-[12.5px]">{p.name}</span>
+                              {!hasVendas && (
+                                <span className="ml-2 inline-block px-1.5 py-0.5 rounded-sm bg-slate-100 text-slate-400 text-[8px] font-bold font-mono uppercase">Sem Movimento</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 text-center font-mono font-bold text-emerald-800">
+                            {formatCurrency(p.revenue)}
+                          </td>
+                          <td className="py-3 text-center font-mono text-slate-600">
+                            {p.quantity} pct
+                          </td>
+                          <td className="py-3 text-right pr-2 font-mono text-amber-800 font-semibold">
+                            {formatGrams(p.totalGrams || 0)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {sortedProducts.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-400">Nenhum produto cadastrado sob os filtros aplicados.</td>
+                      </tr>
                     )}
-                  </div>
-                </div>
-
-                {/* Products Least Sold */}
-                <div>
-                  <h4 className="font-bold text-xs text-amber-800 flex items-center gap-1.5 pb-2 border-b border-amber-100 mb-3">
-                    <AlertCircle className="w-4 h-4" /> Estoque Estagnado ou Menores Vendas
-                  </h4>
-                  <div className="space-y-2">
-                    {sortedLeastSold.map((p, idx) => (
-                      <div key={idx} className="p-3 bg-amber-50/10 border border-amber-100/30 rounded-xl flex items-center justify-between gap-4 text-xs">
-                        <div>
-                          <p className="font-bold text-slate-800">{p.name}</p>
-                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] mt-0.5">
-                            <span className="text-slate-400 font-mono">Pacotes: {p.quantity}</span>
-                            <span className="text-slate-300">•</span>
-                            <span className="text-amber-600 font-semibold font-mono">Total de peso: {formatGrams(p.totalGrams || 0)}</span>
-                          </div>
-                        </div>
-                        <span className="font-bold font-mono text-amber-800">
-                          {formatCurrency(p.revenue)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
