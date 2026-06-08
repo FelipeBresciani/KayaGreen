@@ -176,7 +176,7 @@ export default function App() {
     const unsubscribeProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const prodList: Product[] = [];
       snapshot.forEach(docSnap => {
-        prodList.push(docSnap.data() as Product);
+        prodList.push({ id: docSnap.id, ...docSnap.data() } as Product);
       });
       setProducts(prodList);
     }, (error) => {
@@ -229,7 +229,7 @@ export default function App() {
       unsubscribeOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
         const ordList: Order[] = [];
         snapshot.forEach(docSnap => {
-          ordList.push(docSnap.data() as Order);
+          ordList.push({ id: docSnap.id, ...docSnap.data() } as Order);
         });
         ordList.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setOrders(ordList);
@@ -242,7 +242,7 @@ export default function App() {
         (snapshot) => {
           const ordList: Order[] = [];
           snapshot.forEach(docSnap => {
-            ordList.push(docSnap.data() as Order);
+            ordList.push({ id: docSnap.id, ...docSnap.data() } as Order);
           });
           ordList.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setOrders(ordList);
@@ -258,7 +258,7 @@ export default function App() {
       unsubscribeNotifications = onSnapshot(collection(db, 'notifications'), (snapshot) => {
         const notifList: Notification[] = [];
         snapshot.forEach(docSnap => {
-          notifList.push(docSnap.data() as Notification);
+          notifList.push({ id: docSnap.id, ...docSnap.data() } as Notification);
         });
         notifList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setNotifications(notifList);
@@ -271,7 +271,7 @@ export default function App() {
         (snapshot) => {
           const notifList: Notification[] = [];
           snapshot.forEach(docSnap => {
-            notifList.push(docSnap.data() as Notification);
+            notifList.push({ id: docSnap.id, ...docSnap.data() } as Notification);
           });
           notifList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setNotifications(notifList);

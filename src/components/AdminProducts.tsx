@@ -39,7 +39,9 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
   const [description, setDescription] = useState('');
   const [availableWeight, setAvailableWeight] = useState(1000);
   const [unit, setUnit] = useState<WeightUnit>('g');
-  const [pricePerWeight, setPricePerWeight] = useState(6.00); // Default to R$ 6.00 per 20g
+  const [price20g, setPrice20g] = useState(6.00);
+  const [price40g, setPrice40g] = useState(11.00);
+  const [price60g, setPrice60g] = useState(15.00);
   const [status, setStatus] = useState<'ativo' | 'inativo'>('ativo');
 
   const openAddModal = () => {
@@ -48,7 +50,9 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
     setDescription('');
     setAvailableWeight(1000);
     setUnit('g');
-    setPricePerWeight(6.00);
+    setPrice20g(6.00);
+    setPrice40g(11.00);
+    setPrice60g(15.00);
     setStatus('ativo');
     setIsModalOpen(true);
   };
@@ -59,21 +63,23 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
     setDescription(p.description || '');
     setAvailableWeight(p.availableWeight);
     setUnit(p.unit);
-    // Convert base price to 20g price for display
+    
+    // Set explicit prices or fall back to calculated ones
     const baseWeight = getProductBaseWeight(p.id);
-    const price20g = (p.pricePerWeight / baseWeight) * 20;
-    setPricePerWeight(Number(price20g.toFixed(2)));
+    const calculated20g = (p.pricePerWeight / baseWeight) * 20;
+    const calculated40g = (p.pricePerWeight / baseWeight) * 40;
+    const calculated60g = (p.pricePerWeight / baseWeight) * 60;
+
+    setPrice20g(p.price20g !== undefined ? p.price20g : Number(calculated20g.toFixed(2)));
+    setPrice40g(p.price40g !== undefined ? p.price40g : Number(calculated40g.toFixed(2)));
+    setPrice60g(p.price60g !== undefined ? p.price60g : Number(calculated60g.toFixed(2)));
     setStatus(p.status);
     setIsModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || pricePerWeight <= 0 || availableWeight < 0) return;
-
-    // Convert the 20g input price back to base price for DB consistency
-    const baseWeight = getProductBaseWeight(editingProduct ? editingProduct.id : '');
-    const calculatedDbPrice = (pricePerWeight / 20) * baseWeight;
+    if (!name || price20g <= 0 || price40g <= 0 || price60g <= 0 || availableWeight < 0) return;
 
     if (editingProduct) {
       onUpdateProduct({
@@ -82,7 +88,10 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
         description: description || '',
         availableWeight: Number(availableWeight),
         unit,
-        pricePerWeight: Number(calculatedDbPrice.toFixed(2)),
+        pricePerWeight: Number(price20g.toFixed(2)),
+        price20g: Number(price20g),
+        price40g: Number(price40g),
+        price60g: Number(price60g),
         image: editingProduct.image || DEFAULT_FALLBACK_IMAGE,
         status,
       });
@@ -92,7 +101,10 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
         description: description || '',
         availableWeight: Number(availableWeight),
         unit,
-        pricePerWeight: Number(calculatedDbPrice.toFixed(2)),
+        pricePerWeight: Number(price20g.toFixed(2)),
+        price20g: Number(price20g),
+        price40g: Number(price40g),
+        price60g: Number(price60g),
         image: DEFAULT_FALLBACK_IMAGE,
         status,
       });
@@ -147,14 +159,13 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Produtos Cadastrados ({products.length})</span>
         </div>
         <div className="overflow-x-auto hidden md:block">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50 text-slate-550 font-bold uppercase text-[10px] tracking-wider">
                 <th className="p-4">Cultura / Nome</th>
                 <th className="p-4">Descrição</th>
-                <th className="p-4 text-center">Unidade</th>
                 <th className="p-4 text-right">Estoque</th>
-                <th className="p-4 text-right">Preço (20g)</th>
+                <th className="p-4 text-right">Preços por Porção (20g / 40g / 60g)</th>
                 <th className="p-4 text-center">Status</th>
                 <th className="p-4 text-center">Ações</th>
               </tr>
@@ -176,16 +187,17 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                   <td className="p-4 max-w-xs truncate" title={p.description}>
                     {p.description}
                   </td>
-                  <td className="p-4 text-center font-medium font-mono text-slate-500">
-                    {p.unit === 'g' ? '20g (Pacote)' : '1kg'}
-                  </td>
                   <td className="p-4 text-right font-bold font-mono">
                     <span className={`${p.availableWeight <= 200 ? 'text-amber-600' : 'text-slate-700'}`}>
-                      {p.availableWeight} {p.unit}
+                      {p.availableWeight} {p.unit || 'g'}
                     </span>
                   </td>
-                  <td className="p-4 text-right font-bold font-mono text-emerald-700">
-                    {formatCurrency((p.pricePerWeight / getProductBaseWeight(p.id)) * 20)}
+                  <td className="p-4 text-right">
+                    <div className="font-mono text-[10px] space-y-0.5 text-slate-650 inline-block text-left">
+                      <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">20g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong></div>
+                      <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">40g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price40g !== undefined ? p.price40g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 40))}</strong></div>
+                      <div><span className="text-[9px] text-slate-400 font-sans uppercase font-bold tracking-wider">60g:</span> <strong className="text-emerald-700 font-bold">{formatCurrency(p.price60g !== undefined ? p.price60g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 60))}</strong></div>
+                    </div>
                   </td>
                   <td className="p-4 text-center">
                     <button
@@ -193,7 +205,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
                         p.status === 'ativo'
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                          : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                          : 'bg-slate-100 text-slate-550 border-slate-200 hover:bg-slate-200'
                       }`}
                       title="Clique para alternar o status"
                     >
@@ -223,7 +235,7 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
 
               {products.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="p-12 text-center text-slate-400 font-medium">
                     <Package className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                     <span>Nenhum produto cadastrado. Adicione um novo utilizando o botão no topo.</span>
                   </td>
@@ -264,12 +276,25 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
                 </p>
               </div>
 
-              <div className="border-t border-slate-100 pt-3 flex items-center justify-between font-mono text-[10px] gap-2">
-                <div>
-                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Preço (20g)</span>
-                  <span className="font-bold text-emerald-700 text-xs">{formatCurrency((p.pricePerWeight / getProductBaseWeight(p.id)) * 20)}</span>
+              <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="space-y-1">
+                  <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Tabela de Preços</span>
+                  <div className="grid grid-cols-3 gap-1 font-mono text-[10px]">
+                    <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                      <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">20g</span>
+                      <strong className="text-emerald-700">{formatCurrency(p.price20g !== undefined ? p.price20g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 20))}</strong>
+                    </div>
+                    <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                      <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">40g</span>
+                      <strong className="text-emerald-700">{formatCurrency(p.price40g !== undefined ? p.price40g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 40))}</strong>
+                    </div>
+                    <div className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                      <span className="text-[8px] text-slate-400 font-sans block uppercase font-semibold">60g</span>
+                      <strong className="text-emerald-700">{formatCurrency(p.price60g !== undefined ? p.price60g : ((p.pricePerWeight / getProductBaseWeight(p.id)) * 60))}</strong>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
+                <div className="pt-2 sm:pt-0 sm:text-right flex justify-between sm:block border-t sm:border-t-0 border-slate-50">
                   <span className="text-slate-400 block uppercase font-bold text-[8px] tracking-wide">Disponível ({p.unit})</span>
                   <span className={`font-bold text-xs ${p.availableWeight <= 200 ? 'text-amber-600' : 'text-slate-700'}`}>
                     {p.availableWeight} {p.unit}
@@ -389,52 +414,84 @@ export default function AdminProducts({ products, onAddProduct, onUpdateProduct,
               </div>
 
               {/* Weight and pricing Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 
                 {/* Available Weight */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                    <Scale className="w-3.5 h-3.5 text-emerald-600" /> Estoque
+                    <Scale className="w-3.5 h-3.5 text-emerald-600" /> Estoque Disponível (Gramas)
                   </label>
                   <input
                     type="number"
                     required
                     min={0}
                     value={availableWeight}
-                    onChange={e => setAvailableWeight(Number(e.target.value))}
+                    onChange={e => {
+                      setAvailableWeight(Number(e.target.value));
+                      setUnit('g');
+                    }}
+                    placeholder="Ex: 1500"
                     className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl px-3 py-2 text-slate-800 font-mono"
                   />
                 </div>
 
-                {/* Weight Unit */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Unidade</label>
-                  <select
-                    value={unit}
-                    onChange={e => setUnit(e.target.value as WeightUnit)}
-                    className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl px-3 py-2 text-slate-800 bg-white"
-                  >
-                    <option value="g">Gramas (g)</option>
-                    <option value="kg">Quilos (kg)</option>
-                  </select>
-                </div>
+              </div>
 
-                {/* Price per weight unit */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1 whitespace-nowrap">
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" /> Preço por 20g (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    min={0.01}
-                    value={pricePerWeight}
-                    onChange={e => setPricePerWeight(Number(e.target.value))}
-                    className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl px-3 py-2 text-slate-800 font-mono"
-                  />
+              {/* Specific pricing for 20g, 40g, 60g */}
+              <div className="p-3.5 bg-slate-50/70 border border-slate-150 rounded-xl space-y-3.5">
+                <p className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                  💰 Preço de Venda por Gramatura
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 20g</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        min={0.01}
+                        value={price20g}
+                        onChange={e => setPrice20g(Number(e.target.value))}
+                        className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 40g</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        min={0.01}
+                        value={price40g}
+                        onChange={e => setPrice40g(Number(e.target.value))}
+                        className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[9.5px] font-bold text-slate-600 mb-1 leading-none">Preço 60g</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-400 font-sans text-[10px]">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        min={0.01}
+                        value={price60g}
+                        onChange={e => setPrice60g(Number(e.target.value))}
+                        className="w-full border border-slate-200 focus:border-emerald-500 focus:outline-none rounded-xl pl-7 pr-2.5 py-1.5 text-slate-800 font-mono text-[11px]"
+                      />
+                    </div>
+                  </div>
                 </div>
-
+                <p className="text-[10px] text-slate-400 leading-normal italic">
+                  Defina valores de venda personalizados para cada porção.
+                </p>
               </div>
 
               {/* Status active/inactive toggle */}

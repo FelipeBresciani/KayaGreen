@@ -13,6 +13,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     availableWeight: 2500, // 2.5kg
     unit: 'g',
     pricePerWeight: 14.50, // Price per 50g unit
+    price20g: 5.80,
+    price40g: 11.60,
+    price60g: 17.40,
     image: 'https://images.unsplash.com/photo-1550345332-09e3ac987658?auto=format&fit=crop&q=80&w=400',
     status: 'ativo',
   },
@@ -23,6 +26,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     availableWeight: 5000, // 5kg
     unit: 'g',
     pricePerWeight: 12.00, // Price per 100g unit
+    price20g: 2.40,
+    price40g: 4.80,
+    price60g: 7.20,
     image: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?auto=format&fit=crop&q=80&w=400',
     status: 'ativo',
   },
@@ -33,6 +39,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     availableWeight: 3100,
     unit: 'g',
     pricePerWeight: 15.00, // Price per 50g unit
+    price20g: 6.00,
+    price40g: 12.00,
+    price60g: 18.00,
     image: 'https://images.unsplash.com/photo-1506806732259-39c2d0268443?auto=format&fit=crop&q=80&w=400',
     status: 'ativo',
   },
@@ -43,6 +52,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     availableWeight: 4000,
     unit: 'g',
     pricePerWeight: 16.00, // Price per 50g unit
+    price20g: 6.40,
+    price40g: 12.80,
+    price60g: 19.20,
     image: 'https://images.unsplash.com/photo-1543257580-7269da773bf5?auto=format&fit=crop&q=80&w=400',
     status: 'ativo',
   },
@@ -53,6 +65,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     availableWeight: 1800,
     unit: 'g',
     pricePerWeight: 18.00, // Price per 40g unit
+    price20g: 9.00,
+    price40g: 18.00,
+    price60g: 27.00,
     image: 'https://images.unsplash.com/photo-1588691535490-6ecf56a64b97?auto=format&fit=crop&q=80&w=400',
     status: 'ativo',
   },
@@ -63,6 +78,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     availableWeight: 2000,
     unit: 'g',
     pricePerWeight: 16.50, // Price per 50g unit
+    price20g: 6.60,
+    price40g: 13.20,
+    price60g: 19.80,
     image: 'https://images.unsplash.com/photo-1515023115689-589c33041d3c?auto=format&fit=crop&q=80&w=400',
     status: 'ativo',
   },
@@ -73,6 +91,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     availableWeight: 1500,
     unit: 'g',
     pricePerWeight: 15.50, // Price per 50g unit
+    price20g: 6.20,
+    price40g: 12.45,
+    price60g: 18.60,
     image: 'https://images.unsplash.com/photo-1551244072-5d12893278ab?auto=format&fit=crop&q=80&w=400',
     status: 'inativo', // Seeded as inactive for admin demo
   }

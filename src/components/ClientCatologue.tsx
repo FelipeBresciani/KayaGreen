@@ -68,6 +68,10 @@ export default function ClientCatalogue({ products, currentCustomer, onPlaceOrde
 
   // Helper to calculate pack price proportionately to the default seed weight
   const getProductPriceForWeight = (product: Product, weight: number): number => {
+    if (weight === 20 && product.price20g !== undefined) return product.price20g;
+    if (weight === 40 && product.price40g !== undefined) return product.price40g;
+    if (weight === 60 && product.price60g !== undefined) return product.price60g;
+
     let baseWeight = 20; // Default base weight for new products is 20g
     if (product.id === 'prod_1') baseWeight = 50;  // Rúcula: price is for 50g
     if (product.id === 'prod_2') baseWeight = 100; // Girassol: price is for 100g

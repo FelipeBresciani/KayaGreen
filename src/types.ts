@@ -12,6 +12,9 @@ export interface Product {
   availableWeight: number; // For stock management
   unit: WeightUnit;
   pricePerWeight: number; // Base price for selling
+  price20g?: number; // Price specifically for 20g
+  price40g?: number; // Price specifically for 40g
+  price60g?: number; // Price specifically for 60g
   image: string; // URL or preset identifier
   status: 'ativo' | 'inativo';
 }
