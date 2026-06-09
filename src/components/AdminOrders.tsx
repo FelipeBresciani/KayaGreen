@@ -299,7 +299,10 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                               const itemsList = selectedOrder.items.map(itm => {
                                 const isUnit = itm.unit === 'un' || itm.weight === 1;
                                 const cleanName = itm.productName.replace(' - Pacote 1g', ' - Unitário');
-                                return `• ${itm.quantity}x ${cleanName} (${isUnit ? 'Unitário' : `${itm.weight}${itm.unit || 'g'}`})`;
+                                const totalDetail = isUnit 
+                                  ? (itm.quantity === 1 ? '1 Unidade' : `${itm.quantity} Unidades`)
+                                  : `${itm.quantity * itm.weight}${itm.unit || 'g'}`;
+                                return `• ${itm.quantity}x ${cleanName} (${totalDetail})`;
                               }).join('\n');
                               const msg = `Olá, ${selectedOrder.customerName}! 🌱 Seu pedido de Microverdes Kayagreen acabou de sair para entrega! 🚚\n\n📦 Itens Enviados:\n${itemsList}\n\n💰 Valor Total: R$ ${selectedOrder.total.toFixed(2)}\n💳 Forma de pagamento: ${selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Cartão de Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Cartão de Débito 💳' : 'A combinar'} na entrega.\n\nFique atento para receber seus microverdes fresquinhos em instantes! Muito obrigado. 💚`;
                               const url = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(msg)}`;
@@ -316,7 +319,10 @@ export default function AdminOrders({ orders, onUpdateOrderStatus }: AdminOrders
                               const itemsList = selectedOrder.items.map(itm => {
                                 const isUnit = itm.unit === 'un' || itm.weight === 1;
                                 const cleanName = itm.productName.replace(' - Pacote 1g', ' - Unitário');
-                                return `• ${itm.quantity}x ${cleanName} (${isUnit ? 'Unitário' : `${itm.weight}${itm.unit || 'g'}`})`;
+                                const totalDetail = isUnit 
+                                  ? (itm.quantity === 1 ? '1 Unidade' : `${itm.quantity} Unidades`)
+                                  : `${itm.quantity * itm.weight}${itm.unit || 'g'}`;
+                                return `• ${itm.quantity}x ${cleanName} (${totalDetail})`;
                               }).join('\n');
                               const subject = `Cultivo Kayagreen: Seus microverdes já saíram para entrega! 🚚`;
                               const body = `Olá, ${selectedOrder.customerName}!\n\nSeu pedido de deliciosos microverdes Kayagreen no valor de R$ ${selectedOrder.total.toFixed(2)} já saiu para entrega! 🚚\n\n📦 Itens enviados:\n${itemsList}\n\nForma de pagamento escolhida: ${selectedOrder.paymentMethod === 'pix' ? 'Pix 📱' : selectedOrder.paymentMethod === 'credito' ? 'Cartão de Crédito 💳' : selectedOrder.paymentMethod === 'debito' ? 'Cartão de Débito 💳' : 'A combinar'} na entrega.\n\nEm instantes nosso entregador chegará ao seu endereço cadastrado:\n${selectedOrder.customerAddress}\n\nMuito obrigado pelo seu apoio ao cultivo orgânico e local!\nEquipe Kayagreen`;
